@@ -1,5 +1,6 @@
 use crate::{
     du_plugin::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
+    input_plugin::Hoverable,
     WindowSize,
 };
 use bevy::{prelude::*, sprite::Anchor};
@@ -10,7 +11,7 @@ const FILE_COLOR: Color = Color::rgb(0.502, 0.502, 0.502);
 const TRANSPARENT_COLOR: Color = Color::rgba(1.0, 1.0, 1.0, 0.0);
 const _SMALL_SLICE_COLOR: Color = Color::rgb(0.231, 0.240, 0.263);
 const LAYER_HEIGHT: f32 = 20.0;
-const GAP_WIDTH: f32 = 2.0;
+const GAP_WIDTH: f32 = 1.0;
 
 const MIN_LIGHTNESS: f32 = 0.62;
 const MAX_LIGHTNESS: f32 = 0.9;
@@ -37,15 +38,20 @@ impl DescendentColorRange {
     fn get_color(&self, fraction_start: f32, depth: u16) -> Color {
         let lightness_fraction = ((depth - 1) as f32).clamp(0.0, 5.0) / 5.0;
         let lightness = MIN_LIGHTNESS + lightness_fraction * (MAX_LIGHTNESS - MIN_LIGHTNESS);
-        Color::hsl(self.start + fraction_start * self.len(), 1.0, lightness)
+        Color::hsl(
+            (self.start + fraction_start * self.len()) % 360.0,
+            1.0,
+            lightness,
+        )
     }
 }
 
 impl Default for DescendentColorRange {
     fn default() -> Self {
+        let start = 120.0;
         Self {
-            start: 0.0,
-            end: 360.0,
+            start,
+            end: 360.0 + start,
         }
     }
 }
@@ -88,10 +94,11 @@ fn initialize_root_fs_entity_sprite(
                 visibility: Visibility { is_visible: true },
                 ..default()
             })
-            .insert(DescendentColorRange {
-                start: 0.0,
-                end: 360.0,
-            });
+            .insert(Hoverable {
+                debug_tag: format!("{}", fs_key),
+                ..default()
+            })
+            .insert(DescendentColorRange::default());
     }
 }
 
@@ -117,23 +124,28 @@ fn initialize_fs_entity_sprites(
     for (entity, fs_key, fs_entity) in new_parented_fs_entities_query.iter() {
         eprintln!("{}: creating sprite", fs_key);
         let mut entity_commands = commands.entity(entity);
-        entity_commands.insert_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: if !fs_entity.is_dir() {
-                    FILE_COLOR
-                } else {
-                    TRANSPARENT_COLOR
+        entity_commands
+            .insert_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: if !fs_entity.is_dir() {
+                        FILE_COLOR
+                    } else {
+                        TRANSPARENT_COLOR
+                    },
+                    anchor: Anchor::BottomLeft,
+                    ..default()
                 },
-                anchor: Anchor::BottomLeft,
+                transform: Transform {
+                    translation: Vec3::new(0.0, 1.0 + GAP_WIDTH / LAYER_HEIGHT, 0.0),
+                    ..default()
+                },
+                visibility: Visibility { is_visible: false },
                 ..default()
-            },
-            transform: Transform {
-                translation: Vec3::new(0.0, 1.0 + 2.0 / LAYER_HEIGHT, 0.0),
+            })
+            .insert(Hoverable {
+                debug_tag: format!("{}", fs_key),
                 ..default()
-            },
-            visibility: Visibility { is_visible: false },
-            ..default()
-        });
+            });
         if fs_entity.is_dir() {
             entity_commands.insert(DescendentColorRange::default());
         }

@@ -1,9 +1,11 @@
 mod du_plugin;
 mod fs_graph_plugin;
+mod input_plugin;
 pub mod walk_dir_level_order;
 
 use crate::du_plugin::*;
 use crate::fs_graph_plugin::FsGraphPlugin;
+use crate::input_plugin::*;
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
@@ -29,6 +31,7 @@ fn main() {
         .insert_resource(WindowSize(INITIAL_WINDOW_SIZE))
         .insert_resource(ClearColor(WINDOW_COLOR))
         .add_plugins(DefaultPlugins)
+        .add_plugin(MouseInputPlugin)
         .add_plugin(FramepacePlugin {
             framerate_limit: FramerateLimit::Manual(30),
             warn_on_frame_drop: false,
@@ -44,7 +47,9 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     // Cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands
+        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .insert(InputCamera);
 }
 
 fn update_window_size(windows: Res<Windows>, mut window_size: ResMut<WindowSize>) {
