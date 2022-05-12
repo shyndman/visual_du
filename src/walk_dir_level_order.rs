@@ -1,20 +1,14 @@
-use std::{
-    cmp::Ordering,
-    collections::VecDeque,
-    fs::{self, read_dir, DirEntry},
-    path::*,
-    result::Result,
-};
+use std::{cmp::Ordering, collections::VecDeque, fs, path, result::Result};
 
 pub struct LevelOrderTraversal {
-    pub root_path: PathBuf,
+    pub root_path: path::PathBuf,
     queue: VecDeque<Result<FsEntity, Error>>,
 }
 
 impl LevelOrderTraversal {
     fn enque_children_of(&mut self, parent: &FsEntity) {
         if parent.is_dir() {
-            match read_dir(parent.clone().path) {
+            match fs::read_dir(parent.clone().path) {
                 Ok(rd) => {
                     let mut child_entities: Vec<_> = rd
                         .map(|e| dir_entry_to_fs_entity(e, parent.depth + 1))
@@ -34,7 +28,7 @@ impl LevelOrderTraversal {
 }
 
 fn dir_entry_to_fs_entity(
-    dir_entry_res: Result<DirEntry, std::io::Error>,
+    dir_entry_res: Result<fs::DirEntry, std::io::Error>,
     depth: u16,
 ) -> Result<FsEntity, Error> {
     let (maybe_dir_entry, metadata_res) = match dir_entry_res {
@@ -58,7 +52,7 @@ impl Iterator for LevelOrderTraversal {
     fn next(&mut self) -> Option<Self::Item> {
         let maybe_current_res = self.queue.pop_front();
         if let Some(ref current_res) = maybe_current_res {
-            if let Ok(current) = current_res {
+            if let Ok(ref current) = current_res {
                 self.enque_children_of(current);
             }
         }
@@ -66,15 +60,13 @@ impl Iterator for LevelOrderTraversal {
     }
 }
 
-pub fn walk_dir_in_level_order<P: AsRef<Path>>(
-    root_path: P,
-) -> Result<LevelOrderTraversal, std::io::Error> {
+pub fn walk_dir<P: AsRef<path::Path>>(root_path: P) -> Result<LevelOrderTraversal, std::io::Error> {
     let root_path = root_path.as_ref().canonicalize()?;
     let root = fs::metadata(&root_path)
         .map(|md| FsEntity {
             path: root_path.clone(),
             metadata: md,
-            depth: 0
+            depth: 0,
         })
         .map_err(|_| Error {});
 
@@ -86,15 +78,21 @@ pub fn walk_dir_in_level_order<P: AsRef<Path>>(
 
 #[derive(Clone, Debug)]
 pub struct FsEntity {
-    pub path: PathBuf,
+    pub path: path::PathBuf,
     pub metadata: fs::Metadata,
     pub depth: u16,
 }
 
 #[allow(dead_code)]
 impl FsEntity {
-    pub fn size(&self) -> u64 {
-        self.metadata.len()
+    /// If this is a file, returns the file size in bytes. If this is a directory or symlink,
+    /// 0 is returned.
+    pub fn size_in_bytes(&self) -> u64 {
+        if self.is_file() {
+            self.metadata.len()
+        } else {
+            0
+        }
     }
 
     pub fn is_dir(&self) -> bool {

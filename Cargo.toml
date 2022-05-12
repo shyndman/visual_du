@@ -5,13 +5,20 @@ version = "0.1.0"
 
 [dependencies]
 bevy = {version = "0.7.0", features = ["dynamic"]}
+bevy_framepace = "0.4.0"
 bevy_prototype_lyon = "0.5.0"
+crossbeam-channel = "0.5.4"
+grouping_by = "0.2.2"
 walkdir = "2.3.2"
+
+[lib]
+name = "visual_du"
+path = "src/lib.rs"
 
 [[bin]]
 name = "main"
 path = "src/main.rs"
 
-[[bin]]
-name = "fs_test"
-path = "src/fs_test.rs"
+[[example]]
+name = "walk_dir_example"
+path = "example/walk_dir_example.rs"
