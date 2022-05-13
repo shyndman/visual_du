@@ -1,11 +1,6 @@
 use bevy::{prelude::*, render::camera::RenderTarget, utils::HashSet};
-
-#[derive(Deref, DerefMut)]
-pub struct CursorWorldPosition(Option<Vec2>);
-
-/// Marks the camera that should be used when mapping cursor position into world coordinates
-#[derive(Component)]
-pub struct InputCamera;
+use tracing::debug;
+use valuable::Valuable;
 
 #[derive(Component, Default)]
 pub struct Hoverable {
@@ -13,10 +8,17 @@ pub struct Hoverable {
     pub debug_tag: String,
 }
 
-pub struct MouseInputPlugin;
-impl Plugin for MouseInputPlugin {
+#[derive(Deref, DerefMut)]
+struct MouseCursorWorldPosition(Option<Vec2>);
+
+/// Marks the camera that should be used when mapping cursor position into world coordinates
+#[derive(Component)]
+pub struct InputCamera;
+
+pub struct MouseInteractionsPlugin;
+impl Plugin for MouseInteractionsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CursorWorldPosition(Vec2::ZERO.into()))
+        app.insert_resource(MouseCursorWorldPosition(Vec2::ZERO.into()))
             .add_system_to_stage(CoreStage::PreUpdate, update_cursor_position)
             .add_system(mark_hoverables);
     }
@@ -24,7 +26,7 @@ impl Plugin for MouseInputPlugin {
 
 fn update_cursor_position(
     camera_query: Query<(&Camera, &GlobalTransform), With<InputCamera>>,
-    mut cursor_world_pos: ResMut<CursorWorldPosition>,
+    mut cursor_world_pos: ResMut<MouseCursorWorldPosition>,
     windows: Res<Windows>,
 ) {
     let (camera, camera_transform) = camera_query.single();
@@ -56,10 +58,10 @@ fn update_cursor_position(
         let world_pos: Vec2 = world_pos.truncate();
 
         // Cursor is inside the window, position given
-        *cursor_world_pos = CursorWorldPosition(Some(world_pos));
+        *cursor_world_pos = MouseCursorWorldPosition(Some(world_pos));
     } else {
         // Cursor is not inside the window
-        *cursor_world_pos = CursorWorldPosition(None);
+        *cursor_world_pos = MouseCursorWorldPosition(None);
     }
 }
 
@@ -67,15 +69,15 @@ fn update_cursor_position(
 struct MarkedHoverables(HashSet<Entity>);
 
 fn mark_hoverables(
-    cursor_world_pos: Res<CursorWorldPosition>,
-    mut hoverables_query: Query<(Entity, &mut Hoverable, &GlobalTransform)>,
+    cursor_world_pos: Res<MouseCursorWorldPosition>,
+    mut hoverables_query: Query<(Entity, &mut Hoverable, &GlobalTransform, &Visibility)>,
     mut marked_hoverables: Local<MarkedHoverables>,
 ) {
     if cursor_world_pos.0 == None {
         if cursor_world_pos.is_changed() {
-            println!("No cursor position — removing any existing hover states");
+            debug!("no cursor position — removing any existing hover states");
             for entity in marked_hoverables.iter() {
-                let (_, mut hoverable, _) = hoverables_query.get_mut(*entity).unwrap();
+                let (_, mut hoverable, _, _) = hoverables_query.get_mut(*entity).unwrap();
                 hoverable.is_hovered = false;
             }
             marked_hoverables.clear();
@@ -84,12 +86,17 @@ fn mark_hoverables(
         let cursor_world_pos = cursor_world_pos.unwrap();
         let mut unseen_hoverables = marked_hoverables.0.clone();
 
-        let mut z_ordered_hoverables: Vec<(Entity, Mut<Hoverable>, &GlobalTransform)> =
-            hoverables_query.iter_mut().collect();
-        z_ordered_hoverables
-            .sort_by(|(_, _, t_a), (_, _, t_b)| t_b.translation.z.total_cmp(&t_a.translation.z));
+        let mut z_ordered_hoverables: Vec<(Entity, Mut<Hoverable>, &GlobalTransform, &Visibility)> =
+            hoverables_query
+                .iter_mut()
+                // Don't include hidden sprites
+                .filter(|(_, _, _, vis)| vis.is_visible)
+                .collect();
+        z_ordered_hoverables.sort_by(|(_, _, t_a, _), (_, _, t_b, _)| {
+            t_b.translation.z.total_cmp(&t_a.translation.z)
+        });
 
-        for (entity, mut hoverable, transform) in z_ordered_hoverables {
+        for (entity, mut hoverable, transform, _) in z_ordered_hoverables {
             unseen_hoverables.remove(&entity);
 
             let min = transform.translation.truncate();
@@ -102,9 +109,10 @@ fn mark_hoverables(
             if hoverable.is_hovered != new_is_hovered {
                 hoverable.is_hovered = new_is_hovered;
                 if new_is_hovered {
-                    println!(
-                        "hoverable state changed\n  debug_tag={}\n  is_hovered={}",
-                        hoverable.debug_tag, new_is_hovered,
+                    debug!(
+                        is_hovered = new_is_hovered,
+                        debug_tag = hoverable.debug_tag.as_value(),
+                        "hoverable state changed",
                     );
                     marked_hoverables.insert(entity);
                 } else {

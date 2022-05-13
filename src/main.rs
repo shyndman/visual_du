@@ -1,14 +1,17 @@
-mod du_plugin;
-mod fs_graph_plugin;
-mod input_plugin;
+mod du_fs_plugin;
+mod du_tree_view_plugin;
+mod mouse_interactions_plugin;
 pub mod walk_dir_level_order;
 
-use crate::du_plugin::*;
-use crate::fs_graph_plugin::FsGraphPlugin;
-use crate::input_plugin::*;
+use crate::du_fs_plugin::*;
+use crate::du_tree_view_plugin::DiskUsageTreeViewPlugin;
+use crate::mouse_interactions_plugin::*;
+use bevy::log::{LogPlugin, LogSettings};
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
+use tracing::Level;
+use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
 const WINDOW_COLOR: Color = Color::rgb(0.161, 0.173, 0.2);
 const INITIAL_WINDOW_WIDTH: f32 = 1280.0;
@@ -16,33 +19,63 @@ const INITIAL_WINDOW_HEIGHT: f32 = 800.0;
 const INITIAL_WINDOW_SIZE: Vec2 = const_vec2!([INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT]);
 
 #[derive(Deref, DerefMut)]
-struct WindowSize(Vec2);
+struct WindowSize(pub Vec2);
 
 fn main() {
-    App::new()
-        .insert_resource(DiskUsageRootPath::from("example"))
-        .insert_resource(WinitSettings::game())
+    let mut application = App::new();
+    application
+        .insert_resource(DiskUsageRootPath::from("example/example_hierarchy/"))
+        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(WindowDescriptor {
             title: "Visual Disk Usage".into(),
             width: INITIAL_WINDOW_SIZE.x,
             height: INITIAL_WINDOW_SIZE.y,
             ..default()
         })
+        .insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowSize(INITIAL_WINDOW_SIZE))
-        .insert_resource(ClearColor(WINDOW_COLOR))
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MouseInputPlugin)
+        .insert_resource(ClearColor(WINDOW_COLOR));
+
+    // We insert these plugins/resources before adding DefaultPlugins
+    #[cfg(debug_assertions)]
+    {
+        application.insert_resource(LogSettings {
+            filter: "main=debug".to_string(),
+            level: Level::WARN,
+        });
+    }
+
+    application
+        .add_startup_system(setup_tracing)
+        .add_plugins_with(
+            DefaultPlugins,
+            // We disable the log plugin so we can setup the tracing subscriber the way we like it
+            |group| group.disable::<LogPlugin>(),
+        )
+        .add_plugin(MouseInteractionsPlugin)
         .add_plugin(FramepacePlugin {
             framerate_limit: FramerateLimit::Manual(30),
             warn_on_frame_drop: false,
         })
         .add_startup_system(setup)
         .add_plugin(DiskUsagePlugin)
-        .add_plugin(FsGraphPlugin)
-        .add_system(update_window_size)
-        // .add_system(transform_on_key)
-        // .add_system(scale_root_on_window_resize)
-        .run();
+        .add_plugin(DiskUsageTreeViewPlugin)
+        .add_system(update_window_size);
+
+    application.run();
+}
+
+fn setup_tracing(settings: Res<LogSettings>) {
+    let default_filter = { format!("{},{}", settings.level, settings.filter) };
+    let filter_layer = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new(&default_filter))
+        .unwrap();
+    let subscriber = Registry::default()
+        .with(filter_layer)
+        .with(tracing_error::ErrorLayer::default())
+        .with(tracing_subscriber::fmt::layer().compact().without_time());
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 }
 
 fn setup(mut commands: Commands) {

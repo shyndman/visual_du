@@ -1,5 +1,5 @@
 [build]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y"]
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y", "--cfg", "tracing_unstable"]
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]

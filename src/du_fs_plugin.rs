@@ -1,13 +1,14 @@
+use crate::walk_dir_level_order::{walk_dir, FsEntity};
+use bevy::prelude::*;
 use crossbeam_channel::bounded;
 use std::{
-    fmt::Display,
     fs,
     thread::{self, sleep},
     time::Duration,
 };
-
-use crate::walk_dir_level_order::{walk_dir, FsEntity};
-use bevy::prelude::*;
+use tracing::debug;
+use valuable::Valuable as ValuableTrait;
+use valuable_derive::Valuable;
 
 #[macro_export]
 macro_rules! relative_to {
@@ -23,13 +24,8 @@ macro_rules! relative_to {
 #[derive(Component)]
 pub struct FsRootComponent;
 
-#[derive(Component, Deref)]
+#[derive(Component, Deref, Valuable)]
 pub struct FsEntityKey(pub String);
-impl Display for FsEntityKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(if self.0.is_empty() { "(root)" } else { &self.0 })
-    }
-}
 
 #[derive(Component, Debug, Deref)]
 pub struct FsEntityComponent(FsEntity);
@@ -73,11 +69,13 @@ impl Plugin for DiskUsagePlugin {
             .add_startup_system(start_dir_walk)
             .add_system(spawn_fs_entities)
             .add_system(establish_parentage)
-            .add_system(increment_parent_sizes);
+            .add_system(increment_ancestor_sizes_on_add);
     }
 }
 
 fn start_dir_walk(mut commands: Commands, root_path: Res<DiskUsageRootPath>) {
+    info!(root_path = root_path.as_value(), "starting directory walk");
+
     let (send_channel, receive_channel) = bounded::<FsEntity>(64);
     let root_path_for_move = root_path.clone(); // We need a scope-appropriate lifetime
     thread::spawn(move || {
@@ -101,7 +99,7 @@ fn spawn_fs_entities(
     for fs_entity in fs_entity_stream.try_iter() {
         let rel_path = relative_to!(fs_entity.path, root_path);
         let key: String = rel_path.to_string_lossy().into();
-        eprintln!("{path}: spawning entity", path = format_path(&rel_path));
+        debug!(path = rel_path.as_value(), "spawning entity");
 
         fs_entity_map.insert(
             key.clone(),
@@ -127,23 +125,20 @@ fn establish_parentage(
     for (child_entity, fs_key, fs_entity) in added_fs_entities.iter() {
         let path = &fs_entity.path;
         let rel_path = relative_to!(path, root_path);
-        eprintln!("{path}: establishing parentage", path = fs_key);
+        debug!(path = fs_key.as_value(), "establishing parentage");
         if let Some(parent_path) = rel_path.parent() {
-            eprintln!(
-                "  linking to {parent_path}",
-                parent_path = format_path(parent_path),
-            );
+            debug!(parent_path = parent_path.as_value(), "  linking to parent",);
             let parent_key: String = parent_path.to_string_lossy().into();
             let parent_entity = fs_entity_map.get(&parent_key).unwrap();
             commands.entity(*parent_entity).add_child(child_entity);
         } else {
-            eprintln!("  is root — adding FsRootEntityComponent marker");
+            debug!("  is root — adding FsRootEntityComponent marker");
             commands.entity(child_entity).insert(FsRootComponent {});
         }
     }
 }
 
-fn increment_parent_sizes(
+fn increment_ancestor_sizes_on_add(
     added_fs_entities: Query<(&FsEntityKey, &FsEntityComponent), Added<FsEntityComponent>>,
     mut all_sizes: Query<&mut FsAggregateSize>,
     fs_entity_map: Res<FsEntityMap>,
@@ -158,15 +153,15 @@ fn increment_parent_sizes(
             .size_in_bytes;
 
         if size_in_bytes == 0 {
-            eprintln!(
-                "{path}: increasing ancestor sizes...skip (0 size)",
-                path = fs_key
+            debug!(
+                path = fs_key.as_value(),
+                "increasing ancestor sizes...skip (0 size)",
             );
             continue;
         } else {
-            eprintln!(
-                "{path}: increasing ancestor sizes +{size_in_bytes}b",
-                path = fs_key
+            debug!(
+                path = fs_key.as_value(),
+                "increasing ancestor sizes +{size_in_bytes}b",
             );
         }
 
@@ -181,22 +176,14 @@ fn increment_parent_sizes(
 
             if let Ok(mut ancestor_agg_size) = all_sizes.get_mut(*ancestor_entity) {
                 ancestor_agg_size.size_in_bytes += size_in_bytes;
-                eprintln!(
-                    "  {new_size}b {path}",
+                debug!(
+                    path = ancestor_path.as_value(),
+                    "  {new_size}b",
                     new_size = ancestor_agg_size.size_in_bytes,
-                    path = format_path(ancestor_path)
                 );
             } else {
-                eprintln!(" (error!!!)");
+                error!(" (error!!!)");
             }
         }
-    }
-}
-
-fn format_path(path: &std::path::Path) -> String {
-    if path.as_os_str().is_empty() {
-        "(root)".into()
-    } else {
-        path.to_string_lossy().into()
     }
 }

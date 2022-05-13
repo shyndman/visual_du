@@ -1,4 +1,5 @@
 use std::{cmp::Ordering, collections::VecDeque, fs, path, result::Result};
+use tracing::error;
 
 pub struct LevelOrderTraversal {
     pub root_path: path::PathBuf,
@@ -21,7 +22,7 @@ impl LevelOrderTraversal {
                     });
                     self.queue.extend(child_entities);
                 }
-                Err(e) => eprintln!("{}", e),
+                Err(error) => error!(error = %error, "Error reading directory"),
             }
         }
     }
