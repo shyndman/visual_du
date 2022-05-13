@@ -10,13 +10,15 @@ use bevy::log::{LogPlugin, LogSettings};
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
+#[cfg(debug_assertions)]
 use tracing::Level;
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
 const WINDOW_COLOR: Color = Color::rgb(0.161, 0.173, 0.2);
 const INITIAL_WINDOW_WIDTH: f32 = 1280.0;
 const INITIAL_WINDOW_HEIGHT: f32 = 800.0;
-const INITIAL_WINDOW_SIZE: Vec2 = const_vec2!([INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT]);
+const INITIAL_WINDOW_SIZE: Vec2 =
+    const_vec2!([INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT]);
 
 #[derive(Deref, DerefMut)]
 struct WindowSize(pub Vec2);

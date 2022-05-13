@@ -44,7 +44,8 @@ impl DescendentColorRange {
 
     fn get_color(&self, fraction_start: f32, depth: u16) -> Color {
         let lightness_fraction = ((depth - 1) as f32).clamp(0.0, 5.0) / 5.0;
-        let lightness = MIN_LIGHTNESS + lightness_fraction * (MAX_LIGHTNESS - MIN_LIGHTNESS);
+        let lightness =
+            MIN_LIGHTNESS + lightness_fraction * (MAX_LIGHTNESS - MIN_LIGHTNESS);
         Color::hsl(
             (200.0 + self.start_hue_deg + fraction_start * self.len()) % 360.0,
             1.0,
@@ -134,8 +135,14 @@ fn root_transform_for_window_size(window_size: Vec2) -> Transform {
 /// The root is an invisible sprite with the height of a layer, and the width of the canvas
 fn initialize_fs_root_entity_sprite(
     mut commands: Commands,
-    fs_root_query: Query<(Entity, &FsEntityKey), (With<FsEntityComponent>, Added<FsRootComponent>)>,
-    transform_root_query: Query<Entity, (With<DiskUsageTreeViewTransformRoot>, Without<Children>)>,
+    fs_root_query: Query<
+        (Entity, &FsEntityKey),
+        (With<FsEntityComponent>, Added<FsRootComponent>),
+    >,
+    transform_root_query: Query<
+        Entity,
+        (With<DiskUsageTreeViewTransformRoot>, Without<Children>),
+    >,
 ) {
     if transform_root_query.is_empty() || fs_root_query.is_empty() {
         return;
@@ -249,18 +256,26 @@ fn invalidate_tree_from_root(
     let fs_root_res = fs_root_query.get_single();
     let transform_root_changed_res = transform_root_changed_query.get_single();
 
-    let (fs_root, root_transform, tree_needs_redraw, fs_root_changed, root_transform_changed) =
-        match (fs_root_res, transform_root_changed_res) {
-            (Ok((fs_root, fs_root_changed)), Ok((root_transform, root_transform_changed))) => (
-                fs_root,
-                root_transform,
-                fs_root_changed || root_transform_changed,
-                fs_root_changed,
-                root_transform_changed,
-            ),
+    let (
+        fs_root,
+        root_transform,
+        tree_needs_redraw,
+        fs_root_changed,
+        root_transform_changed,
+    ) = match (fs_root_res, transform_root_changed_res) {
+        (
+            Ok((fs_root, fs_root_changed)),
+            Ok((root_transform, root_transform_changed)),
+        ) => (
+            fs_root,
+            root_transform,
+            fs_root_changed || root_transform_changed,
+            fs_root_changed,
+            root_transform_changed,
+        ),
 
-            _ => return,
-        };
+        _ => return,
+    };
 
     if tree_needs_redraw {
         let span = info_span!("du_tree::invalidate()");
@@ -312,10 +327,11 @@ fn invalidate_subtree_recursive(
 ) {
     let (parent_fs_key, _, parent_fs_size, maybe_children) =
         fs_entity_details_query.get(*fs_parent).unwrap();
-    let maybe_parent_color_range: Option<DescendentColorRange> = fs_entity_mutable_details_query
-        .get_component::<DescendentColorRange>(*fs_parent)
-        .ok()
-        .map(|rng| *rng); // This dereference returns the immutable borrow
+    let maybe_parent_color_range: Option<DescendentColorRange> =
+        fs_entity_mutable_details_query
+            .get_component::<DescendentColorRange>(*fs_parent)
+            .ok()
+            .map(|rng| *rng); // This dereference returns the immutable borrow
 
     debug!(
         key = parent_fs_key.as_value(),
@@ -327,11 +343,13 @@ fn invalidate_subtree_recursive(
     // Determine the visibility of children. Any child whose coloured region is less than 1 logical
     // pixel will not be displayed.
 
-    let bytes_to_fractional_x = |bytes: u64| bytes as f32 / parent_fs_size.size_in_bytes as f32;
+    let bytes_to_fractional_x =
+        |bytes: u64| bytes as f32 / parent_fs_size.size_in_bytes as f32;
     let fractional_x_to_screen_x = |fractional_x: f32, total_screen_w: Option<f32>| {
         fractional_x * total_screen_w.unwrap_or(parent_global_transform.scale.x)
     };
-    let screen_x_to_fractional_x = |screen_x: f32| screen_x / parent_global_transform.scale.x;
+    let screen_x_to_fractional_x =
+        |screen_x: f32| screen_x / parent_global_transform.scale.x;
 
     let children_by_visibility = maybe_children
         .unwrap_or(default_children_iter)
@@ -344,7 +362,9 @@ fn invalidate_subtree_recursive(
             let screen_w = fractional_x_to_screen_x(fractional_w, None);
             (child, fractional_w, screen_w)
         })
-        .grouping_by(|(_child, _fractional_w, screen_w)| *screen_w >= MIN_CHILD_WIDTH_WITH_GAP);
+        .grouping_by(|(_child, _fractional_w, screen_w)| {
+            *screen_w >= MIN_CHILD_WIDTH_WITH_GAP
+        });
     let visible_children = children_by_visibility
         .get(&true)
         .unwrap_or(default_entity_ref_vec);
@@ -358,14 +378,16 @@ fn invalidate_subtree_recursive(
         .iter()
         .map(|(_, _, screen_w)| *screen_w)
         .sum::<f32>();
-    let use_group_for_hidden_children = hidden_children_screen_w > MIN_CHILD_WIDTH_WITH_GAP;
+    let use_group_for_hidden_children =
+        hidden_children_screen_w > MIN_CHILD_WIDTH_WITH_GAP;
 
     // Calculate the number of gaps, and the unit proportion that will cut into the children's
     // space
     let number_of_gaps =
         (visible_children.len() + use_group_for_hidden_children as usize).max(1) - 1;
     let total_gap_screen_w = number_of_gaps as f32 * GAP_WIDTH;
-    let available_screen_w_minus_gaps = parent_global_transform.scale.x - total_gap_screen_w;
+    let available_screen_w_minus_gaps =
+        parent_global_transform.scale.x - total_gap_screen_w;
 
     debug!(
         visible_children_count = visible_children.len(),
@@ -388,8 +410,12 @@ fn invalidate_subtree_recursive(
         let is_last = maybe_last_visible_child.unwrap().0 == child;
 
         let (child_fs_key, child_fs, _, _) = fs_entity_details_query.get(*child).unwrap();
-        let (mut child_transform, mut child_sprite, mut child_vis, maybe_child_color_range) =
-            fs_entity_mutable_details_query.get_mut(*child).unwrap();
+        let (
+            mut child_transform,
+            mut child_sprite,
+            mut child_vis,
+            maybe_child_color_range,
+        ) = fs_entity_mutable_details_query.get_mut(*child).unwrap();
 
         // Set the child to visible
         child_vis.is_visible = true;
@@ -399,9 +425,12 @@ fn invalidate_subtree_recursive(
         }
 
         // Update the child's position/size using fractional values
-        let child_screen_w_minus_gaps =
-            fractional_x_to_screen_x(child_fractional_w, Some(available_screen_w_minus_gaps));
-        remainder_screen_w += child_screen_w_minus_gaps - child_screen_w_minus_gaps.floor();
+        let child_screen_w_minus_gaps = fractional_x_to_screen_x(
+            child_fractional_w,
+            Some(available_screen_w_minus_gaps),
+        );
+        remainder_screen_w +=
+            child_screen_w_minus_gaps - child_screen_w_minus_gaps.floor();
         let child_screen_w_minus_gaps = child_screen_w_minus_gaps.floor();
         let child_fractional_w_minus_gaps = screen_x_to_fractional_x(
             child_screen_w_minus_gaps + if is_last { remainder_screen_w } else { 0.0 },
@@ -423,7 +452,8 @@ fn invalidate_subtree_recursive(
         // the child's position in the parent
         if let Some(mut child_color_range) = maybe_child_color_range {
             let parent_color_range = maybe_parent_color_range.unwrap();
-            *child_color_range = parent_color_range.sub_range(fractional_x, child_fractional_w);
+            *child_color_range =
+                parent_color_range.sub_range(fractional_x, child_fractional_w);
             debug!(
                 key = child_fs_key.as_value(),
                 parent_range = parent_color_range.as_value(),
@@ -436,27 +466,26 @@ fn invalidate_subtree_recursive(
         }
 
         // Increment x for the next child
-        fractional_x += child_fractional_w_minus_gaps + screen_x_to_fractional_x(GAP_WIDTH);
+        fractional_x +=
+            child_fractional_w_minus_gaps + screen_x_to_fractional_x(GAP_WIDTH);
     }
 
     // Ensure that all the hidden children are marked hidden
-    for (child, _, screen_w) in hidden_children {
-        let child = *child;
+    for (hidden_fs_child, _, screen_w) in hidden_children {
+        let hidden_fs_child = *hidden_fs_child;
         let child_key = fs_entity_details_query
-            .get_component::<FsEntityKey>(*child)
+            .get_component::<FsEntityKey>(*hidden_fs_child)
             .unwrap();
         debug!(
             child_key = child_key.as_value(),
             child_screen_width = screen_w,
             "child too small to display — hiding"
         );
-        let mut child_vis = fs_entity_mutable_details_query
-            .get_component_mut::<Visibility>(*child)
-            .unwrap();
-
-        if child_vis.is_visible {
-            child_vis.is_visible = false;
-        }
+        hide_subtree_recursive(
+            hidden_fs_child,
+            fs_entity_details_query,
+            fs_entity_mutable_details_query,
+        );
     }
 
     // Invalidate the subtrees of visible children
@@ -468,7 +497,8 @@ fn invalidate_subtree_recursive(
             .unwrap();
 
         // Compute the global transform for the child (the one stored can be out of date)
-        let child_global_transform = parent_global_transform.mul_transform(*child_transform);
+        let child_global_transform =
+            parent_global_transform.mul_transform(*child_transform);
 
         // Invalidate the subtree rooted at child (if one exists)
         invalidate_subtree_recursive(
@@ -479,5 +509,50 @@ fn invalidate_subtree_recursive(
             default_children_iter,
             default_entity_ref_vec,
         );
+    }
+}
+
+fn hide_subtree_recursive(
+    hidden_fs_parent: &Entity,
+    fs_entity_details_query: &Query<(
+        &FsEntityKey,
+        &FsEntityComponent,
+        &FsAggregateSize,
+        Option<&Children>,
+    )>,
+    fs_entity_mutable_details_query: &mut Query<
+        (
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+            Option<&mut DescendentColorRange>,
+        ),
+        (
+            With<FsEntityComponent>,
+            Without<DiskUsageTreeViewTransformRoot>,
+        ),
+    >,
+) {
+    let mut child_vis = fs_entity_mutable_details_query
+        .get_component_mut::<Visibility>(*hidden_fs_parent)
+        .unwrap();
+
+    if child_vis.is_visible {
+        child_vis.is_visible = false;
+    } else {
+        return; // stop at an invisible subtree
+    }
+
+    if let Some(children) = fs_entity_details_query
+        .get_component::<Children>(*hidden_fs_parent)
+        .ok()
+    {
+        for hidden_fs_child in children.iter() {
+            hide_subtree_recursive(
+                hidden_fs_child,
+                fs_entity_details_query,
+                fs_entity_mutable_details_query,
+            );
+        }
     }
 }

@@ -1,11 +1,7 @@
 use crate::walk_dir_level_order::{walk_dir, FsEntity};
 use bevy::prelude::*;
 use crossbeam_channel::bounded;
-use std::{
-    fs,
-    thread::{self, sleep},
-    time::Duration,
-};
+use std::{fs, thread};
 use tracing::debug;
 use valuable::Valuable as ValuableTrait;
 use valuable_derive::Valuable;
@@ -117,7 +113,10 @@ fn spawn_fs_entities(
 /// Establishes the parentage of fs entities in the data layer
 fn establish_parentage(
     mut commands: Commands,
-    added_fs_entities: Query<(Entity, &FsEntityKey, &FsEntityComponent), Added<FsEntityComponent>>,
+    added_fs_entities: Query<
+        (Entity, &FsEntityKey, &FsEntityComponent),
+        Added<FsEntityComponent>,
+    >,
     fs_entity_map: Res<FsEntityMap>,
     root_path: Res<DiskUsageRootPath>,
 ) {
@@ -138,7 +137,10 @@ fn establish_parentage(
 }
 
 fn increment_ancestor_sizes_on_add(
-    added_fs_entities: Query<(&FsEntityKey, &FsEntityComponent), Added<FsEntityComponent>>,
+    added_fs_entities: Query<
+        (&FsEntityKey, &FsEntityComponent),
+        Added<FsEntityComponent>,
+    >,
     mut all_sizes: Query<&mut FsAggregateSize>,
     fs_entity_map: Res<FsEntityMap>,
     root_path: Res<DiskUsageRootPath>,
