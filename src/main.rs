@@ -24,12 +24,13 @@ struct WindowSize(pub Vec2);
 fn main() {
     let mut application = App::new();
     application
-        .insert_resource(DiskUsageRootPath::from("example/example_hierarchy/"))
-        .insert_resource(WinitSettings::desktop_app())
+        .insert_resource(DiskUsageRootPath::from("/Users/shyndman/dev/"))
+        .insert_resource(WinitSettings::game())
         .insert_resource(WindowDescriptor {
             title: "Visual Disk Usage".into(),
             width: INITIAL_WINDOW_SIZE.x,
             height: INITIAL_WINDOW_SIZE.y,
+            scale_factor_override: Some(2.0),
             ..default()
         })
         .insert_resource(Msaa { samples: 4 })
@@ -40,7 +41,7 @@ fn main() {
     #[cfg(debug_assertions)]
     {
         application.insert_resource(LogSettings {
-            filter: "main=debug".to_string(),
+            filter: "main=warn".to_string(),
             level: Level::WARN,
         });
     }
@@ -65,8 +66,12 @@ fn main() {
     application.run();
 }
 
-fn setup_tracing(settings: Res<LogSettings>) {
-    let default_filter = { format!("{},{}", settings.level, settings.filter) };
+fn setup_tracing(maybe_settings: Option<Res<LogSettings>>) {
+    let default_filter = if let Some(settings) = maybe_settings {
+        format!("{},{}", settings.level, settings.filter)
+    } else {
+        "".to_string()
+    };
     let filter_layer = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&default_filter))
         .unwrap();

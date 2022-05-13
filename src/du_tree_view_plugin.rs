@@ -7,20 +7,21 @@ use bevy::{prelude::*, sprite::Anchor};
 use grouping_by::GroupingBy;
 use tracing::debug;
 use valuable::Valuable;
+use valuable_derive::Valuable;
 
-const ROOT_COLOR: Color = Color::rgb(0.097, 0.104, 0.120);
+const ROOT_COLOR: Color = Color::rgba(0.097, 0.104, 0.120, 0.0);
 const FILE_COLOR: Color = Color::rgb(0.502, 0.502, 0.502);
 const TRANSPARENT_COLOR: Color = Color::rgba(1.0, 1.0, 1.0, 0.0);
 const _SMALL_SLICE_COLOR: Color = Color::rgb(0.231, 0.240, 0.263);
-const LAYER_HEIGHT: f32 = 42.0;
-const GAP_WIDTH: f32 = 1.0;
+const LAYER_HEIGHT: f32 = 36.0;
+const GAP_WIDTH: f32 = 0.5;
 
 const MIN_LIGHTNESS: f32 = 0.62;
 const MAX_LIGHTNESS: f32 = 0.9;
 const MIN_CHILD_WIDTH: f32 = 1.0;
 const MIN_CHILD_WIDTH_WITH_GAP: f32 = MIN_CHILD_WIDTH + GAP_WIDTH;
 
-#[derive(Component, Copy, Clone, Debug)]
+#[derive(Component, Copy, Clone, Debug, Valuable)]
 struct DescendentColorRange {
     /// [0..1]
     start_hue_deg: f32,
@@ -45,7 +46,7 @@ impl DescendentColorRange {
         let lightness_fraction = ((depth - 1) as f32).clamp(0.0, 5.0) / 5.0;
         let lightness = MIN_LIGHTNESS + lightness_fraction * (MAX_LIGHTNESS - MIN_LIGHTNESS);
         Color::hsl(
-            (self.start_hue_deg + fraction_start * self.len()) % 360.0,
+            (200.0 + self.start_hue_deg + fraction_start * self.len()) % 360.0,
             1.0,
             lightness,
         )
@@ -55,8 +56,8 @@ impl DescendentColorRange {
 impl Default for DescendentColorRange {
     fn default() -> Self {
         Self {
-            start_hue_deg: 120.0,
-            end_hue_deg: 360.0 + 120.0,
+            start_hue_deg: 0.0,
+            end_hue_deg: 300.0,
         }
     }
 }
@@ -83,9 +84,9 @@ fn create_transform_root(mut commands: Commands, window_size: Res<WindowSize>) {
     let transform = root_transform_for_window_size(window_size);
 
     debug!(
-        window_size = window_size.to_array().as_value(),
-        translation = transform.translation.to_array().as_value(),
-        scale = transform.scale.to_array().as_value(),
+        window_size = ?window_size,
+        transform.translation = ?transform.translation,
+        transform.scale = ?transform.scale,
         "creating disk usage tree transform root"
     );
 
@@ -93,7 +94,7 @@ fn create_transform_root(mut commands: Commands, window_size: Res<WindowSize>) {
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
                 color: TRANSPARENT_COLOR,
-                anchor: Anchor::BottomLeft,
+                anchor: Anchor::Center,
                 ..default()
             },
             transform: transform,
@@ -123,8 +124,9 @@ fn scale_transform_root_to_window(
 
 fn root_transform_for_window_size(window_size: Vec2) -> Transform {
     Transform {
-        translation: (window_size / -2.0).extend(0.0) + Vec3::new(10.0, 10.0, 0.0),
-        scale: Vec3::new(window_size.x - 20.0, LAYER_HEIGHT, 1.0),
+        translation: (window_size / -2.0).extend(0.0)
+            + Vec3::new(window_size.x / 10.0, window_size.y / 4.0, 0.0),
+        scale: Vec3::new(window_size.x - window_size.x / 5.0, LAYER_HEIGHT, 1.0),
         ..default()
     }
 }
@@ -220,7 +222,6 @@ fn invalidate_tree_from_root(
         &FsEntityComponent,
         &FsAggregateSize,
         Option<&Children>,
-        &GlobalTransform,
     )>,
     mut fs_entity_mutable_details_query: Query<
         (
@@ -236,8 +237,8 @@ fn invalidate_tree_from_root(
         ),
     >,
     transform_root_changed_query: Query<
-        &DiskUsageTreeViewTransformRoot,
-        (Changed<Transform>, With<DiskUsageTreeViewTransformRoot>),
+        (&Transform, Changed<Transform>),
+        With<DiskUsageTreeViewTransformRoot>,
     >,
     // These two values are initialized to their defaults by Local, and remain empty. We use these
     // as error fallbacks. Note that we've had to use a static lifetime for
@@ -248,27 +249,32 @@ fn invalidate_tree_from_root(
     let fs_root_res = fs_root_query.get_single();
     let transform_root_changed_res = transform_root_changed_query.get_single();
 
-    let (fs_root, tree_needs_redraw, fs_root_changed, tree_view_size_changed) =
+    let (fs_root, root_transform, tree_needs_redraw, fs_root_changed, root_transform_changed) =
         match (fs_root_res, transform_root_changed_res) {
-            // If we get an Ok() on transform_root_changed_res, we know that at least a size change
-            // took place
-            (Ok((fs_root, fs_root_changed)), Ok(_)) => (fs_root, true, fs_root_changed, true),
-            // Even if we didn't get an Ok() on transform_root_changed_res, an fs_root_changed will
-            // invalidate the tree
-            (Ok((fs_root, fs_root_changed)), Err(_)) => {
-                (fs_root, fs_root_changed, fs_root_changed, false)
-            }
+            (Ok((fs_root, fs_root_changed)), Ok((root_transform, root_transform_changed))) => (
+                fs_root,
+                root_transform,
+                fs_root_changed || root_transform_changed,
+                fs_root_changed,
+                root_transform_changed,
+            ),
 
             _ => return,
         };
 
     if tree_needs_redraw {
+        let span = info_span!("du_tree::invalidate()");
+        let _enter_guard = span.enter();
+
         info!(
             fs_root_changed = fs_root_changed,
-            tree_view_size_changed = tree_view_size_changed,
-            "re-rendering disk usage tree"
+            root_transform_changed = root_transform_changed,
+            "disk usage tree visuals invalidated"
         );
+
+        let root_global_transform: GlobalTransform = (*root_transform).into();
         invalidate_subtree_recursive(
+            &root_global_transform,
             &fs_root,
             &fs_entity_details_query,
             &mut fs_entity_mutable_details_query,
@@ -280,13 +286,13 @@ fn invalidate_tree_from_root(
 
 /// This is not a system — it is invoked
 fn invalidate_subtree_recursive(
+    parent_global_transform: &GlobalTransform,
     fs_parent: &Entity,
     fs_entity_details_query: &Query<(
         &FsEntityKey,
         &FsEntityComponent,
         &FsAggregateSize,
         Option<&Children>,
-        &GlobalTransform,
     )>,
     fs_entity_mutable_details_query: &mut Query<
         (
@@ -304,17 +310,19 @@ fn invalidate_subtree_recursive(
     default_children_iter: &Local<Children>,
     default_entity_ref_vec: &Local<Vec<(&'static Entity, f32, f32)>>,
 ) {
-    let (parent_fs_key, _, parent_fs_size, maybe_children, parent_global_transform) =
+    let (parent_fs_key, _, parent_fs_size, maybe_children) =
         fs_entity_details_query.get(*fs_parent).unwrap();
     let maybe_parent_color_range: Option<DescendentColorRange> = fs_entity_mutable_details_query
         .get_component::<DescendentColorRange>(*fs_parent)
         .ok()
         .map(|rng| *rng); // This dereference returns the immutable borrow
 
-    debug!(key = parent_fs_key.as_value(),
-            global_translation = ?parent_global_transform.translation,
-            global_scale = ?parent_global_transform.scale,
-            "invalidating subtree");
+    debug!(
+        key = parent_fs_key.as_value(),
+        global.translation = ?parent_global_transform.translation,
+        global.scale = ?parent_global_transform.scale,
+        "invalidating subtree"
+    );
 
     // Determine the visibility of children. Any child whose coloured region is less than 1 logical
     // pixel will not be displayed.
@@ -370,22 +378,34 @@ fn invalidate_subtree_recursive(
     );
 
     let mut fractional_x = 0_f32; // Running child x coordinate, in the range [0..1]
+    let mut remainder_screen_w = 0_f32;
+
+    let maybe_last_visible_child = visible_children.last();
     for (child, child_fractional_w, _) in visible_children {
         // For some reason the grouping_by() operator maps to references of the elements, so we
         // deref up front, shadowing the references
         let (child, child_fractional_w) = (*child, *child_fractional_w);
-        let (child_fs_key, child_fs, _, _, _) = fs_entity_details_query.get(*child).unwrap();
+        let is_last = maybe_last_visible_child.unwrap().0 == child;
+
+        let (child_fs_key, child_fs, _, _) = fs_entity_details_query.get(*child).unwrap();
         let (mut child_transform, mut child_sprite, mut child_vis, maybe_child_color_range) =
             fs_entity_mutable_details_query.get_mut(*child).unwrap();
 
         // Set the child to visible
         child_vis.is_visible = true;
 
+        if is_last {
+            debug!(child_fs_key = child_fs_key.as_value(), "!!!!!!!! LAST");
+        }
+
         // Update the child's position/size using fractional values
         let child_screen_w_minus_gaps =
-            fractional_x_to_screen_x(child_fractional_w, Some(available_screen_w_minus_gaps))
-                .round();
-        let child_fractional_w_minus_gaps = screen_x_to_fractional_x(child_screen_w_minus_gaps);
+            fractional_x_to_screen_x(child_fractional_w, Some(available_screen_w_minus_gaps));
+        remainder_screen_w += child_screen_w_minus_gaps - child_screen_w_minus_gaps.floor();
+        let child_screen_w_minus_gaps = child_screen_w_minus_gaps.floor();
+        let child_fractional_w_minus_gaps = screen_x_to_fractional_x(
+            child_screen_w_minus_gaps + if is_last { remainder_screen_w } else { 0.0 },
+        );
         child_transform.scale.x = child_fractional_w_minus_gaps;
         child_transform.translation.x = fractional_x;
 
@@ -395,6 +415,7 @@ fn invalidate_subtree_recursive(
             child_fractional_w_minus_gaps,
             child_scale_x = child_transform.scale.x,
             child_translation_x = fractional_x,
+            remainder_screen_w,
             "child positioned"
         );
 
@@ -403,20 +424,32 @@ fn invalidate_subtree_recursive(
         if let Some(mut child_color_range) = maybe_child_color_range {
             let parent_color_range = maybe_parent_color_range.unwrap();
             *child_color_range = parent_color_range.sub_range(fractional_x, child_fractional_w);
+            debug!(
+                key = child_fs_key.as_value(),
+                parent_range = parent_color_range.as_value(),
+                child_range = child_color_range.as_value(),
+                fractional_x,
+                child_fractional_w,
+                "determined child color range",
+            );
             child_sprite.color = child_color_range.get_color(0.0, child_fs.depth);
         }
 
         // Increment x for the next child
-        fractional_x += child_fractional_w;
+        fractional_x += child_fractional_w_minus_gaps + screen_x_to_fractional_x(GAP_WIDTH);
     }
 
     // Ensure that all the hidden children are marked hidden
-    for (child, _, _) in hidden_children {
+    for (child, _, screen_w) in hidden_children {
         let child = *child;
         let child_key = fs_entity_details_query
             .get_component::<FsEntityKey>(*child)
             .unwrap();
-        debug!(child_key = child_key.as_value(), "hiding child. too small.");
+        debug!(
+            child_key = child_key.as_value(),
+            child_screen_width = screen_w,
+            "child too small to display — hiding"
+        );
         let mut child_vis = fs_entity_mutable_details_query
             .get_component_mut::<Visibility>(*child)
             .unwrap();
@@ -429,8 +462,17 @@ fn invalidate_subtree_recursive(
     // Invalidate the subtrees of visible children
     for (child, _, _) in visible_children {
         let child = *child;
+
+        let child_transform = fs_entity_mutable_details_query
+            .get_component::<Transform>(*child)
+            .unwrap();
+
+        // Compute the global transform for the child (the one stored can be out of date)
+        let child_global_transform = parent_global_transform.mul_transform(*child_transform);
+
         // Invalidate the subtree rooted at child (if one exists)
         invalidate_subtree_recursive(
+            &child_global_transform,
             child,
             fs_entity_details_query,
             fs_entity_mutable_details_query,
