@@ -3,8 +3,7 @@ use bevy::prelude::*;
 use crossbeam_channel::bounded;
 use std::{fs, thread};
 use tracing::debug;
-use valuable::Valuable as ValuableTrait;
-use valuable_derive::Valuable;
+use valuable::{Valuable, Value};
 
 #[macro_export]
 macro_rules! relative_to {
@@ -20,8 +19,18 @@ macro_rules! relative_to {
 #[derive(Component)]
 pub struct FsRootComponent;
 
-#[derive(Component, Deref, Valuable)]
+#[derive(Component, Deref)]
 pub struct FsEntityKey(pub String);
+
+impl Valuable for FsEntityKey {
+    fn as_value(&self) -> valuable::Value<'_> {
+        Value::String(self.0.as_str())
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_value(self.as_value());
+    }
+}
 
 #[derive(Component, Debug, Deref)]
 pub struct FsEntityComponent(FsEntity);
@@ -58,8 +67,8 @@ impl Default for DiskUsageRootPath {
     }
 }
 
-pub struct WalkDirPlugin;
-impl Plugin for WalkDirPlugin {
+pub struct DiskUsagePlugin;
+impl Plugin for DiskUsagePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DiskUsageRootPath>()
             .add_startup_system(start_dir_walk)
@@ -125,12 +134,19 @@ fn establish_parentage(
         let rel_path = relative_to!(path, root_path);
         debug!(path = fs_key.as_value(), "establishing parentage");
         if let Some(parent_path) = rel_path.parent() {
-            debug!(parent_path = parent_path.as_value(), "  linking to parent",);
+            debug!(
+                path = fs_key.as_value(),
+                parent_path = parent_path.as_value(),
+                "linking to parent",
+            );
             let parent_key: String = parent_path.to_string_lossy().into();
             let parent_entity = fs_entity_map.get(&parent_key).unwrap();
             commands.entity(*parent_entity).add_child(child_entity);
         } else {
-            debug!("  is root — adding FsRootEntityComponent marker");
+            debug!(
+                path = fs_key.as_value(),
+                "adding FsRootEntityComponent marker to root fs entity"
+            );
             commands.entity(child_entity).insert(FsRootComponent {});
         }
     }
@@ -155,7 +171,7 @@ fn increment_ancestor_sizes_on_add(
 
         if size_in_bytes == 0 {
             debug!(
-                path = fs_key.as_value(),
+                path = fs_entity.path.as_value(),
                 "increasing ancestor sizes...skip (0 size)",
             );
             continue;
@@ -179,11 +195,10 @@ fn increment_ancestor_sizes_on_add(
                 ancestor_agg_size.size_in_bytes += size_in_bytes;
                 debug!(
                     path = ancestor_path.as_value(),
-                    "  {new_size}b",
                     new_size = ancestor_agg_size.size_in_bytes,
                 );
             } else {
-                error!(" (error!!!)");
+                error!("(error!!!)");
             }
         }
     }

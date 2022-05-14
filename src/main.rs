@@ -1,16 +1,19 @@
 mod fs;
+mod trace;
 mod ui;
 
+#[cfg(debug_assertions)]
+use ::tracing::Level;
 use bevy::log::{LogPlugin, LogSettings};
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
-use fs::walk_dir_plugin::*;
+use fs::du_plugin::*;
 use std::env;
-#[cfg(debug_assertions)]
-use tracing::Level;
+use trace::fmt::PrettierFormatter;
+use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
-use ui::{tree_view_plugin::DiskUsageTreeViewPlugin, mouse_interactions_plugin::*};
+use ui::{mouse_interactions_plugin::*, tree_view_plugin::DiskUsageTreeViewPlugin};
 
 const WINDOW_COLOR: Color = Color::rgb(0.161, 0.173, 0.2);
 const INITIAL_WINDOW_WIDTH: f32 = 1280.0;
@@ -61,7 +64,7 @@ fn main() {
             warn_on_frame_drop: false,
         })
         .add_startup_system(setup)
-        .add_plugin(WalkDirPlugin)
+        .add_plugin(DiskUsagePlugin)
         .add_plugin(DiskUsageTreeViewPlugin)
         .add_system(update_window_size);
 
@@ -77,12 +80,17 @@ fn setup_tracing(maybe_settings: Option<Res<LogSettings>>) {
     let filter_layer = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&default_filter))
         .unwrap();
+
     let subscriber = Registry::default()
         .with(filter_layer)
         .with(tracing_error::ErrorLayer::default())
-        .with(tracing_subscriber::fmt::layer().without_time());
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::CLOSE)
+                .event_format(PrettierFormatter::default()),
+        );
 
-    tracing::subscriber::set_global_default(subscriber).unwrap();
+    ::tracing::subscriber::set_global_default(subscriber).unwrap();
 }
 
 fn setup(mut commands: Commands) {

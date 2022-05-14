@@ -4,6 +4,7 @@ name = "visual_du"
 version = "0.1.0"
 
 [dependencies]
+ansi_term = "0.12"
 bevy = {version = "0.7.0", features = ["dynamic", "trace"]}
 bevy_framepace = "0.4.0"
 bevy_prototype_lyon = "0.5.0"

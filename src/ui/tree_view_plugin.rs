@@ -1,6 +1,6 @@
 use super::{less_angry_rainbow_get_color, mouse_interactions_plugin::Hoverable};
 use crate::{
-    fs::walk_dir_plugin::{
+    fs::du_plugin::{
         FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent,
     },
     WindowSize,
@@ -413,10 +413,6 @@ fn invalidate_subtree_recursive(
         // Set the child to visible
         child_vis.is_visible = true;
 
-        if is_last {
-            debug!(child_fs_key = child_fs_key.as_value(), "!!!!!!!! LAST");
-        }
-
         // Update the child's position/size using fractional values
         let child_screen_w_minus_gaps = fractional_x_to_screen_x(
             child_fractional_w,
@@ -469,10 +465,10 @@ fn invalidate_subtree_recursive(
         let child_key = fs_entity_details_query
             .get_component::<FsEntityKey>(*hidden_fs_child)
             .unwrap();
-        debug!(
+        trace!(
             child_key = child_key.as_value(),
             child_screen_width = screen_w,
-            "child too small to display — hiding"
+            "hiding child too small to display"
         );
         hide_subtree_recursive(
             hidden_fs_child,
