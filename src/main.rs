@@ -3,6 +3,8 @@ mod du_tree_view_plugin;
 mod mouse_interactions_plugin;
 pub mod walk_dir_level_order;
 
+use std::env;
+
 use crate::du_fs_plugin::*;
 use crate::du_tree_view_plugin::DiskUsageTreeViewPlugin;
 use crate::mouse_interactions_plugin::*;
@@ -24,9 +26,11 @@ const INITIAL_WINDOW_SIZE: Vec2 =
 struct WindowSize(pub Vec2);
 
 fn main() {
+    let mut args = env::args().skip(1);
+    let root_path: String = args.next().unwrap_or("/Users/shyndman/dev/dart-sdk".into());
     let mut application = App::new();
     application
-        .insert_resource(DiskUsageRootPath::from("/Users/shyndman/dev/"))
+        .insert_resource(DiskUsageRootPath::from(root_path))
         .insert_resource(WinitSettings::game())
         .insert_resource(WindowDescriptor {
             title: "Visual Disk Usage".into(),
@@ -43,8 +47,8 @@ fn main() {
     #[cfg(debug_assertions)]
     {
         application.insert_resource(LogSettings {
-            filter: "main=warn".to_string(),
-            level: Level::WARN,
+            filter: "main=trace".to_string(),
+            level: Level::DEBUG,
         });
     }
 
@@ -80,7 +84,7 @@ fn setup_tracing(maybe_settings: Option<Res<LogSettings>>) {
     let subscriber = Registry::default()
         .with(filter_layer)
         .with(tracing_error::ErrorLayer::default())
-        .with(tracing_subscriber::fmt::layer().compact().without_time());
+        .with(tracing_subscriber::fmt::layer().without_time());
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
 }

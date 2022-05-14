@@ -88,7 +88,7 @@ fn create_transform_root(mut commands: Commands, window_size: Res<WindowSize>) {
         window_size = ?window_size,
         transform.translation = ?transform.translation,
         transform.scale = ?transform.scale,
-        "creating disk usage tree transform root"
+        "creating transform root"
     );
 
     commands
