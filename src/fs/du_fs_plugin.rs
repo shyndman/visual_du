@@ -1,4 +1,4 @@
-use crate::walk_dir_level_order::{walk_dir, FsEntity};
+use super::walk_dir_level_order::{walk_dir, FsEntity};
 use bevy::prelude::*;
 use crossbeam_channel::bounded;
 use std::{fs, thread};

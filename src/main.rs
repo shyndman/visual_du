@@ -1,20 +1,16 @@
-mod du_fs_plugin;
-mod du_tree_view_plugin;
-mod mouse_interactions_plugin;
-pub mod walk_dir_level_order;
+mod fs;
+mod ui;
 
-use std::env;
-
-use crate::du_fs_plugin::*;
-use crate::du_tree_view_plugin::DiskUsageTreeViewPlugin;
-use crate::mouse_interactions_plugin::*;
 use bevy::log::{LogPlugin, LogSettings};
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
+use fs::du_fs_plugin::*;
+use std::env;
 #[cfg(debug_assertions)]
 use tracing::Level;
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use ui::{du_tree_view_plugin::DiskUsageTreeViewPlugin, mouse_interactions_plugin::*};
 
 const WINDOW_COLOR: Color = Color::rgb(0.161, 0.173, 0.2);
 const INITIAL_WINDOW_WIDTH: f32 = 1280.0;

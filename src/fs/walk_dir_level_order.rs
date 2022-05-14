@@ -1,29 +1,31 @@
 use std::{cmp::Ordering, collections::VecDeque, fs, path, result::Result};
 use tracing::error;
 
-pub struct LevelOrderTraversal {
+pub struct LevelOrderDirTraversal {
     pub root_path: path::PathBuf,
     queue: VecDeque<Result<FsEntity, Error>>,
 }
 
-impl LevelOrderTraversal {
+impl LevelOrderDirTraversal {
     fn enque_children_of(&mut self, parent: &FsEntity) {
-        if parent.is_dir() {
-            match fs::read_dir(parent.clone().path) {
-                Ok(rd) => {
-                    let mut child_entities: Vec<_> = rd
-                        .map(|e| dir_entry_to_fs_entity(e, parent.depth + 1))
-                        .collect();
-                    child_entities.sort_by(|a, b| match (a, b) {
-                        (Ok(a), Ok(b)) => a.path.to_str().cmp(&b.path.to_str()),
-                        (Ok(_), Err(_)) => Ordering::Less,
-                        (Err(_), Ok(_)) => Ordering::Greater,
-                        (Err(_), Err(_)) => Ordering::Equal,
-                    });
-                    self.queue.extend(child_entities);
-                }
-                Err(error) => error!(error = %error, "Error reading directory"),
+        if !parent.is_dir() {
+            return;
+        }
+
+        match fs::read_dir(parent.clone().path) {
+            Ok(rd) => {
+                let mut child_entities: Vec<_> = rd
+                    .map(|e| dir_entry_to_fs_entity(e, parent.depth + 1))
+                    .collect();
+                child_entities.sort_by(|a, b| match (a, b) {
+                    (Ok(a), Ok(b)) => a.path.to_str().cmp(&b.path.to_str()),
+                    (Ok(_), Err(_)) => Ordering::Less,
+                    (Err(_), Ok(_)) => Ordering::Greater,
+                    (Err(_), Err(_)) => Ordering::Equal,
+                });
+                self.queue.extend(child_entities);
             }
+            Err(error) => error!(error = %error, "Error reading directory"),
         }
     }
 }
@@ -47,7 +49,7 @@ fn dir_entry_to_fs_entity(
         .map_err(|_e| Error {})
 }
 
-impl Iterator for LevelOrderTraversal {
+impl Iterator for LevelOrderDirTraversal {
     type Item = Result<FsEntity, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -61,7 +63,9 @@ impl Iterator for LevelOrderTraversal {
     }
 }
 
-pub fn walk_dir<P: AsRef<path::Path>>(root_path: P) -> Result<LevelOrderTraversal, std::io::Error> {
+pub fn walk_dir<P: AsRef<path::Path>>(
+    root_path: P,
+) -> Result<LevelOrderDirTraversal, std::io::Error> {
     let root_path = root_path.as_ref().canonicalize()?;
     let root = fs::metadata(&root_path)
         .map(|md| FsEntity {
@@ -71,7 +75,7 @@ pub fn walk_dir<P: AsRef<path::Path>>(root_path: P) -> Result<LevelOrderTraversa
         })
         .map_err(|_| Error {});
 
-    Ok(LevelOrderTraversal {
+    Ok(LevelOrderDirTraversal {
         root_path,
         queue: VecDeque::from([root]),
     })
@@ -89,6 +93,8 @@ impl FsEntity {
     /// If this is a file, returns the file size in bytes. If this is a directory or symlink,
     /// 0 is returned.
     pub fn size_in_bytes(&self) -> u64 {
+        // TODO: This is apparent size, not actual. To work with blocks, we'll need to
+        // be looking at the Unix metadata extensions.
         if self.is_file() {
             self.metadata.len()
         } else {
@@ -110,7 +116,17 @@ impl FsEntity {
 }
 
 #[derive(Debug)]
-pub struct Error {}
+pub struct Error {
+    // pub message: &str;
+}
+
+impl Error {
+    // new(message: &str) -> Self {
+    //     Self {
+    //         message
+    //     }
+    // }
+}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

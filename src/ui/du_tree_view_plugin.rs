@@ -1,6 +1,8 @@
+use super::mouse_interactions_plugin::Hoverable;
 use crate::{
-    du_fs_plugin::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
-    mouse_interactions_plugin::Hoverable,
+    fs::du_fs_plugin::{
+        FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent,
+    },
     WindowSize,
 };
 use bevy::{prelude::*, sprite::Anchor};
