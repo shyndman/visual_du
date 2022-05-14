@@ -5,12 +5,12 @@ use bevy::log::{LogPlugin, LogSettings};
 use bevy::winit::WinitSettings;
 use bevy::{math::const_vec2, prelude::*};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
-use fs::du_fs_plugin::*;
+use fs::walk_dir_plugin::*;
 use std::env;
 #[cfg(debug_assertions)]
 use tracing::Level;
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
-use ui::{du_tree_view_plugin::DiskUsageTreeViewPlugin, mouse_interactions_plugin::*};
+use ui::{tree_view_plugin::DiskUsageTreeViewPlugin, mouse_interactions_plugin::*};
 
 const WINDOW_COLOR: Color = Color::rgb(0.161, 0.173, 0.2);
 const INITIAL_WINDOW_WIDTH: f32 = 1280.0;
@@ -61,7 +61,7 @@ fn main() {
             warn_on_frame_drop: false,
         })
         .add_startup_system(setup)
-        .add_plugin(DiskUsagePlugin)
+        .add_plugin(WalkDirPlugin)
         .add_plugin(DiskUsageTreeViewPlugin)
         .add_system(update_window_size);
 

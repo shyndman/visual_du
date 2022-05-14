@@ -1,6 +1,6 @@
 use super::mouse_interactions_plugin::Hoverable;
 use crate::{
-    fs::du_fs_plugin::{
+    fs::walk_dir_plugin::{
         FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent,
     },
     WindowSize,

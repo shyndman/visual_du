@@ -58,8 +58,8 @@ impl Default for DiskUsageRootPath {
     }
 }
 
-pub struct DiskUsagePlugin;
-impl Plugin for DiskUsagePlugin {
+pub struct WalkDirPlugin;
+impl Plugin for WalkDirPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DiskUsageRootPath>()
             .add_startup_system(start_dir_walk)
