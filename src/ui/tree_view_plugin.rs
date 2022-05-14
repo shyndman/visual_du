@@ -1,4 +1,4 @@
-use super::mouse_interactions_plugin::Hoverable;
+use super::{less_angry_rainbow_get_color, mouse_interactions_plugin::Hoverable};
 use crate::{
     fs::walk_dir_plugin::{
         FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent,
@@ -18,49 +18,40 @@ const _SMALL_SLICE_COLOR: Color = Color::rgb(0.231, 0.240, 0.263);
 const LAYER_HEIGHT: f32 = 36.0;
 const GAP_WIDTH: f32 = 0.5;
 
-const MIN_LIGHTNESS: f32 = 0.62;
-const MAX_LIGHTNESS: f32 = 0.9;
 const MIN_CHILD_WIDTH: f32 = 1.0;
 const MIN_CHILD_WIDTH_WITH_GAP: f32 = MIN_CHILD_WIDTH + GAP_WIDTH;
 
-#[derive(Component, Copy, Clone, Debug, Valuable)]
+#[derive(Component, Clone, Copy, Debug, Valuable)]
 struct DescendentColorRange {
     /// [0..1]
-    start_hue_deg: f32,
+    start: f32,
     /// [0..1]
-    end_hue_deg: f32,
+    end: f32,
 }
 
 impl DescendentColorRange {
     fn len(&self) -> f32 {
-        self.end_hue_deg - self.start_hue_deg
+        self.end - self.start
     }
 
     fn sub_range(&self, fraction_start: f32, fraction_len: f32) -> DescendentColorRange {
-        let start = self.start_hue_deg + fraction_start * self.len();
+        let start = self.start + fraction_start * self.len();
         DescendentColorRange {
-            start_hue_deg: start,
-            end_hue_deg: start + fraction_len * self.len(),
+            start,
+            end: start + fraction_len * self.len(),
         }
     }
 
-    fn get_color(&self, fraction_start: f32, depth: u16) -> Color {
-        let lightness_fraction = ((depth - 1) as f32).clamp(0.0, 5.0) / 5.0;
-        let lightness =
-            MIN_LIGHTNESS + lightness_fraction * (MAX_LIGHTNESS - MIN_LIGHTNESS);
-        Color::hsl(
-            (200.0 + self.start_hue_deg + fraction_start * self.len()) % 360.0,
-            1.0,
-            lightness,
-        )
+    fn get_color(&self, t: f32, depth: u16) -> Color {
+        less_angry_rainbow_get_color(self.start + t * self.len(), depth)
     }
 }
 
 impl Default for DescendentColorRange {
     fn default() -> Self {
         Self {
-            start_hue_deg: 0.0,
-            end_hue_deg: 300.0,
+            start: 0.0,
+            end: 1.0,
         }
     }
 }
