@@ -40,7 +40,7 @@ impl Plugin for DiskUsageTreeViewPlugin {
             .add_system(scale_transform_root_to_window)
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_root_entity_sprite)
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_entity_sprites)
-            // .add_system(position_children_by_size.after(initialize_fs_entity_sprites))
+            .add_system(handle_hover)
             .add_system(invalidate_tree_from_root);
     }
 }
@@ -192,6 +192,62 @@ fn initialize_fs_entity_sprites(
             });
         if fs_entity.is_dir() {
             entity_commands.insert(DescendentColorRange::default());
+        }
+    }
+}
+
+#[derive(Component)]
+struct HoverSprite;
+
+fn handle_hover(
+    mut commands: Commands,
+    changed_hoverables_query: Query<
+        (Entity, &Hoverable),
+        (
+            With<FsEntityComponent>,
+            Without<FsRootComponent>,
+            Changed<Hoverable>,
+        ),
+    >,
+    hover_sprites_query: Query<(Entity, &Parent), With<HoverSprite>>,
+) {
+    let hover_sprites_by_parent = hover_sprites_query
+        .iter()
+        .grouping_by(|(_entity, parent)| parent.0);
+
+    for (entity, hoverable) in changed_hoverables_query.iter() {
+        info!(
+            debug_tag = hoverable.debug_tag.as_value(),
+            hovered = hoverable.is_hovered,
+            "handle_hover()"
+        );
+        let has_hover_sprite = hover_sprites_by_parent.contains_key(&entity);
+        if hoverable.is_hovered {
+            let hover_sprite = commands
+                .spawn_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::Rgba {
+                            red: 1.0,
+                            green: 1.0,
+                            blue: 1.0,
+                            alpha: 0.12,
+                        },
+                        anchor: Anchor::BottomLeft,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::ZERO,
+                        scale: Vec3::ONE,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .insert(HoverSprite)
+                .id();
+            commands.entity(entity).add_child(hover_sprite);
+        } else if has_hover_sprite {
+            let hover_sprite = hover_sprites_by_parent[&entity][0].0;
+            commands.entity(hover_sprite).despawn();
         }
     }
 }
