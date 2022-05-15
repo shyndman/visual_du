@@ -53,9 +53,7 @@ fn setup_tracing(maybe_settings: Option<Res<LogSettings>>) {
 struct DiagnosticsText;
 
 fn setup_diagnostics_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(UiCameraBundle::default());
     let font = asset_server.load("fonts/Hack-Regular.ttf");
-
     commands
         .spawn_bundle(TextBundle {
             style: Style {

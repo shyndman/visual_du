@@ -7,12 +7,9 @@ use crate::{
     fs::du_plugin::*,
     ui::{mouse_interactions_plugin::*, tree_view_plugin::DiskUsageTreeViewPlugin},
 };
-use bevy::{
-    log::{LogPlugin, LogSettings},
-    math::const_vec2,
-    prelude::*,
-    winit::WinitSettings,
-};
+#[cfg(debug_assertions)]
+use bevy::log::LogSettings;
+use bevy::{log::LogPlugin, math::const_vec2, prelude::*, winit::WinitSettings};
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
 use std::env;
 #[cfg(debug_assertions)]
@@ -64,7 +61,7 @@ fn main() {
             framerate_limit: FramerateLimit::Manual(30),
             warn_on_frame_drop: false,
         })
-        .add_startup_system(setup_camera)
+        .add_startup_system(setup_cameras)
         .add_plugin(DiskUsagePlugin)
         .add_plugin(DiskUsageTreeViewPlugin)
         .add_system(update_window_size);
@@ -72,11 +69,12 @@ fn main() {
     application.run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_cameras(mut commands: Commands) {
     // Cameras
     commands
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(InputCamera);
+    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 fn update_window_size(windows: Res<Windows>, mut window_size: ResMut<WindowSize>) {

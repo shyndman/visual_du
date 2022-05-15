@@ -84,7 +84,7 @@ fn mark_hoverables(
             last_hovered.0 = None;
         }
     } else {
-        let span = info_span!("finding hoverables under cursor");
+        let span = trace_span!("finding hoverables under cursor");
         let _enter_guard = span.enter();
 
         let cursor_world_pos = cursor_world_pos.unwrap();
@@ -114,10 +114,7 @@ fn mark_hoverables(
             if hoverable.is_hovered != new_is_hovered {
                 hoverable.is_hovered = new_is_hovered;
                 if new_is_hovered {
-                    info!(
-                        debug_tag = hoverable.debug_tag.as_value(),
-                        "new hovered",
-                    );
+                    info!(debug_tag = hoverable.debug_tag.as_value(), "new hovered",);
                     last_hovered.0 = Some(entity);
                 }
             }

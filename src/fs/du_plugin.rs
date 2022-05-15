@@ -86,7 +86,10 @@ fn start_dir_walk(mut commands: Commands, root_path: Res<DiskUsageRootPath>) {
     thread::spawn(move || {
         for entity_res in walk_dir(root_path_for_move).unwrap() {
             let entity = entity_res.unwrap();
-            send_channel.send(entity).unwrap();
+            match send_channel.send(entity) {
+                Ok(_) => {}
+                Err(e) => error!(error = %e, "Error encountered while sending"),
+            }
         }
     });
 
