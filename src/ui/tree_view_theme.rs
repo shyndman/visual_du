@@ -1,5 +1,6 @@
-use bevy::prelude::Color;
+use bevy::prelude::{Color, Component};
 use colorous::RAINBOW;
+use valuable_derive::Valuable;
 
 const HSL_MIN_LIGHTNESS: f32 = 0.62;
 const HSL_MAX_LIGHTNESS: f32 = 0.9;
@@ -30,5 +31,40 @@ pub fn less_angry_rainbow_get_color(t: f32, depth: u16) -> Color {
         }
     } else {
         panic!("This can't happen");
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug, Valuable)]
+pub struct DescendentColorRange {
+    /// [0..1]
+    start: f32,
+    /// [0..1]
+    end: f32,
+}
+
+impl DescendentColorRange {
+    fn len(&self) -> f32 {
+        self.end - self.start
+    }
+
+    pub fn sub_range(&self, fraction_start: f32, fraction_len: f32) -> DescendentColorRange {
+        let start = self.start + fraction_start * self.len();
+        DescendentColorRange {
+            start,
+            end: start + fraction_len * self.len(),
+        }
+    }
+
+    pub fn get_color(&self, t: f32, depth: u16) -> Color {
+        less_angry_rainbow_get_color(self.start + t * self.len(), depth)
+    }
+}
+
+impl Default for DescendentColorRange {
+    fn default() -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+        }
     }
 }

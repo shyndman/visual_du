@@ -1,8 +1,7 @@
 use super::{less_angry_rainbow_get_color, mouse_interactions_plugin::Hoverable};
 use crate::{
-    fs::du_plugin::{
-        FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent,
-    },
+    fs::du_plugin::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
+    ui::DescendentColorRange,
     WindowSize,
 };
 use bevy::{prelude::*, sprite::Anchor};
@@ -21,38 +20,13 @@ const GAP_WIDTH: f32 = 0.5;
 const MIN_CHILD_WIDTH: f32 = 1.0;
 const MIN_CHILD_WIDTH_WITH_GAP: f32 = MIN_CHILD_WIDTH + GAP_WIDTH;
 
-#[derive(Component, Clone, Copy, Debug, Valuable)]
-struct DescendentColorRange {
-    /// [0..1]
-    start: f32,
-    /// [0..1]
-    end: f32,
+pub struct DiskUsageTreeOptions {
+    max_depth: u16,
 }
 
-impl DescendentColorRange {
-    fn len(&self) -> f32 {
-        self.end - self.start
-    }
-
-    fn sub_range(&self, fraction_start: f32, fraction_len: f32) -> DescendentColorRange {
-        let start = self.start + fraction_start * self.len();
-        DescendentColorRange {
-            start,
-            end: start + fraction_len * self.len(),
-        }
-    }
-
-    fn get_color(&self, t: f32, depth: u16) -> Color {
-        less_angry_rainbow_get_color(self.start + t * self.len(), depth)
-    }
-}
-
-impl Default for DescendentColorRange {
+impl Default for DiskUsageTreeOptions {
     fn default() -> Self {
-        Self {
-            start: 0.0,
-            end: 1.0,
-        }
+        Self { max_depth: 6 }
     }
 }
 
