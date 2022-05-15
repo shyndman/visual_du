@@ -1,3 +1,5 @@
+use super::{SpriteCountDiagnosticsPlugin, SPRITE_COUNT};
+use crate::debug::PrettierFormatter;
 use bevy::{
     diagnostic::{Diagnostics, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin},
     log::LogSettings,
@@ -7,8 +9,6 @@ use tracing_subscriber::{
     fmt::format::FmtSpan, prelude::*, registry::Registry, EnvFilter,
 };
 
-use crate::debug::PrettierFormatter;
-
 pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
@@ -16,10 +16,12 @@ impl Plugin for DebugPlugin {
         app
             // Tracing
             .add_startup_system(setup_tracing)
-            // Diagnostics
-            .add_startup_system(setup_diagnostics_ui)
+            // Diagnostics collection
+            .add_plugin(SpriteCountDiagnosticsPlugin)
             .add_plugin(EntityCountDiagnosticsPlugin)
             .add_plugin(FrameTimeDiagnosticsPlugin)
+            // Diagnostics display
+            .add_startup_system(setup_diagnostics_ui)
             .add_system(display_diagnostics);
     }
 }
@@ -72,7 +74,6 @@ fn setup_diagnostics_ui(mut commands: Commands, asset_server: Res<AssetServer>) 
                     font: font.clone(),
                     font_size: 24.0,
                     color: Color::WHITE,
-
                 },
                 TextAlignment::default(),
             ),
@@ -97,9 +98,17 @@ fn display_diagnostics(
         }
     }
 
-    if let Some(entity_count_diag) = diagnostics.get(EntityCountDiagnosticsPlugin::ENTITY_COUNT) {
+    if let Some(entity_count_diag) =
+        diagnostics.get(EntityCountDiagnosticsPlugin::ENTITY_COUNT)
+    {
         if let Some(entity_count) = entity_count_diag.value() {
             display_text.push_str(format!("{} entities\n", entity_count).as_str());
+        }
+    }
+
+    if let Some(sprite_count_diag) = diagnostics.get(SPRITE_COUNT) {
+        if let Some(sprite_count) = sprite_count_diag.value() {
+            display_text.push_str(format!("{} sprites\n", sprite_count).as_str());
         }
     }
 
