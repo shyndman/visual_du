@@ -11,7 +11,6 @@ use bevy::{
     log::{LogPlugin, LogSettings},
     math::const_vec2,
     prelude::*,
-    window::PresentMode,
     winit::WinitSettings,
 };
 use bevy_framepace::{FramepacePlugin, FramerateLimit};
@@ -39,7 +38,6 @@ fn main() {
             title: "Visual Disk Usage".into(),
             width: INITIAL_WINDOW_SIZE.x,
             height: INITIAL_WINDOW_SIZE.y,
-            present_mode: PresentMode::Immediate,
             ..default()
         })
         .insert_resource(WindowSize(INITIAL_WINDOW_SIZE))
