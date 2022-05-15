@@ -49,7 +49,8 @@ fn update_cursor_position(
         let ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
 
         // Determine matrix for undoing the projection and camera transform
-        let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix.inverse();
+        let ndc_to_world =
+            camera_transform.compute_matrix() * camera.projection_matrix.inverse();
 
         // Use it to convert ndc to world-space coordinates
         let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
@@ -66,42 +67,43 @@ fn update_cursor_position(
 }
 
 #[derive(Default, Deref, DerefMut)]
-struct MarkedHoverables(HashSet<Entity>);
+struct LastHovered(Option<Entity>);
 
 fn mark_hoverables(
     cursor_world_pos: Res<MouseCursorWorldPosition>,
     mut hoverables_query: Query<(Entity, &mut Hoverable, &GlobalTransform, &Visibility)>,
-    mut marked_hoverables: Local<MarkedHoverables>,
+    mut last_hovered: Local<LastHovered>,
 ) {
     if cursor_world_pos.0 == None {
         if cursor_world_pos.is_changed() {
             debug!("no cursor position — removing any existing hover states");
-            for entity in marked_hoverables.iter() {
-                let (_, mut hoverable, _, _) = hoverables_query.get_mut(*entity).unwrap();
+            if let Some(entity) = last_hovered.0 {
+                let (_, mut hoverable, _, _) = hoverables_query.get_mut(entity).unwrap();
                 hoverable.is_hovered = false;
             }
-            marked_hoverables.clear();
+            last_hovered.0 = None;
         }
     } else {
         let span = info_span!("finding hoverables under cursor");
         let _enter_guard = span.enter();
 
         let cursor_world_pos = cursor_world_pos.unwrap();
-        let mut unseen_hoverables = marked_hoverables.0.clone();
-
-        let mut z_ordered_hoverables: Vec<(Entity, Mut<Hoverable>, &GlobalTransform, &Visibility)> =
-            hoverables_query
-                .iter_mut()
-                // Don't include hidden sprites
-                .filter(|(_, _, _, vis)| vis.is_visible)
-                .collect();
+        let mut z_ordered_hoverables: Vec<(
+            Entity,
+            Mut<Hoverable>,
+            &GlobalTransform,
+            &Visibility,
+        )> = hoverables_query
+            .iter_mut()
+            // Don't include hidden sprites
+            .filter(|(_, _, _, vis)| vis.is_visible)
+            .collect();
         z_ordered_hoverables.sort_by(|(_, _, t_a, _), (_, _, t_b, _)| {
             t_b.translation.z.total_cmp(&t_a.translation.z)
         });
 
+        last_hovered.0 = None;
         for (entity, mut hoverable, transform, _) in z_ordered_hoverables {
-            unseen_hoverables.remove(&entity);
-
             let min = transform.translation.truncate();
             let max = min + transform.scale.truncate();
             let new_is_hovered = min.x <= cursor_world_pos.x
@@ -112,18 +114,13 @@ fn mark_hoverables(
             if hoverable.is_hovered != new_is_hovered {
                 hoverable.is_hovered = new_is_hovered;
                 if new_is_hovered {
-                    debug!(
-                        is_hovered = new_is_hovered,
+                    info!(
                         debug_tag = hoverable.debug_tag.as_value(),
-                        "hoverable state changed",
+                        "new hovered",
                     );
-                    marked_hoverables.insert(entity);
-                } else {
-                    marked_hoverables.remove(&entity);
+                    last_hovered.0 = Some(entity);
                 }
             }
         }
-
-        *marked_hoverables = MarkedHoverables(&(marked_hoverables.0) - &unseen_hoverables);
     }
 }
