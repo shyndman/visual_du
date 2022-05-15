@@ -41,7 +41,8 @@ impl Plugin for DiskUsageTreeViewPlugin {
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_root_entity_sprite)
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_entity_sprites)
             .add_system(handle_hover)
-            .add_system(invalidate_tree_from_root);
+            .add_system(invalidate_tree_from_root)
+            .add_system(update_hover_sprite.after(invalidate_tree_from_root));
     }
 }
 
@@ -56,6 +57,28 @@ fn create_transform_root(mut commands: Commands, window_size: Res<WindowSize>) {
         transform.scale = ?transform.scale,
         "creating transform root"
     );
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::Rgba {
+                    red: 0.0,
+                    green: 0.0,
+                    blue: 0.0,
+                    alpha: 0.36,
+                },
+                anchor: Anchor::BottomLeft,
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 2.0),
+                scale: Vec3::new(300.0, 300.0, 1.0),
+                ..default()
+            },
+            visibility: Visibility { is_visible: false },
+            ..default()
+        })
+        .insert(HoverSprite(None));
 
     commands
         .spawn_bundle(SpriteBundle {
@@ -196,60 +219,99 @@ fn initialize_fs_entity_sprites(
     }
 }
 
-#[derive(Component)]
-struct HoverSprite;
+#[derive(Component, Deref, DerefMut)]
+struct HoverSprite(Option<Entity>);
 
 fn handle_hover(
-    mut commands: Commands,
     changed_hoverables_query: Query<
-        (Entity, &Hoverable),
+        (
+            Entity,
+            &Hoverable,
+            &GlobalTransform,
+            ChangeTrackers<Hoverable>,
+        ),
         (
             With<FsEntityComponent>,
             Without<FsRootComponent>,
             Changed<Hoverable>,
         ),
     >,
-    hover_sprites_query: Query<(Entity, &Parent), With<HoverSprite>>,
+    mut hover_sprite_query: Query<
+        (&mut HoverSprite, &mut Transform, &mut Visibility),
+        With<HoverSprite>,
+    >,
 ) {
-    let hover_sprites_by_parent = hover_sprites_query
+    let only_changed_hoverables = changed_hoverables_query
         .iter()
-        .grouping_by(|(_entity, parent)| parent.0);
+        .filter(|(_, _, _, tracker)| tracker.is_changed() && !tracker.is_added());
+    let change_count = only_changed_hoverables.count();
 
-    for (entity, hoverable) in changed_hoverables_query.iter() {
+    if hover_sprite_query.is_empty() || change_count == 0 {
+        return;
+    }
+
+    let (mut hover_sprite, mut hover_transform, mut hover_vis) =
+        hover_sprite_query.single_mut();
+    let mut has_hovered = false;
+    for (hoverable_entity, hoverable, transform, change_tracker) in
+        changed_hoverables_query.iter()
+    {
         info!(
+            hoverable_changed = change_tracker.is_changed(),
             debug_tag = hoverable.debug_tag.as_value(),
             hovered = hoverable.is_hovered,
             "handle_hover()"
         );
-        let has_hover_sprite = hover_sprites_by_parent.contains_key(&entity);
+
         if hoverable.is_hovered {
-            let hover_sprite = commands
-                .spawn_bundle(SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::Rgba {
-                            red: 1.0,
-                            green: 1.0,
-                            blue: 1.0,
-                            alpha: 0.12,
-                        },
-                        anchor: Anchor::BottomLeft,
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: Vec3::ZERO,
-                        scale: Vec3::ONE,
-                        ..default()
-                    },
-                    ..default()
-                })
-                .insert(HoverSprite)
-                .id();
-            commands.entity(entity).add_child(hover_sprite);
-        } else if has_hover_sprite {
-            let hover_sprite = hover_sprites_by_parent[&entity][0].0;
-            commands.entity(hover_sprite).despawn();
+            has_hovered = true;
+
+            info!(
+                translation = transform.translation.to_array().as_value(),
+                scale = transform.scale.to_array().as_value(),
+                "applying transform"
+            );
+
+            hover_sprite.0 = Some(hoverable_entity);
+            hover_vis.is_visible = true;
+            hover_transform.scale = transform.scale;
+            hover_transform.translation =
+                Vec3::new(transform.translation.x, transform.translation.y, 2.0);
         }
     }
+
+    if !has_hovered {
+        warn!("Hiding the hover sprite");
+        hover_vis.is_visible = false;
+        hover_sprite.0 = None;
+    }
+}
+
+fn update_hover_sprite(
+    mut hover_sprite_query: Query<(&HoverSprite, &mut Transform, &mut Visibility)>,
+    hoverable_transforms: Query<
+        &GlobalTransform,
+        (With<FsEntityComponent>, Without<FsRootComponent>),
+    >,
+) {
+    if hover_sprite_query.is_empty() {
+        return;
+    }
+
+    let (hover_sprite, mut hover_transform, mut hover_vis) =
+        hover_sprite_query.single_mut();
+    if hover_sprite.is_none() {
+        return;
+    }
+
+    let global_transform = hoverable_transforms.get(hover_sprite.0.unwrap()).unwrap();
+    hover_vis.is_visible = true;
+    hover_transform.scale = global_transform.scale;
+    hover_transform.translation = Vec3::new(
+        global_transform.translation.x,
+        global_transform.translation.y,
+        2.0,
+    );
 }
 
 fn invalidate_tree_from_root(
@@ -267,6 +329,7 @@ fn invalidate_tree_from_root(
         (
             // Styling
             &mut Transform,
+            &mut GlobalTransform,
             &mut Sprite,
             &mut Visibility,
             Option<&mut DescendentColorRange>,
@@ -348,6 +411,7 @@ fn invalidate_subtree_recursive(
         (
             // Styling
             &mut Transform,
+            &mut GlobalTransform,
             &mut Sprite,
             &mut Visibility,
             Option<&mut DescendentColorRange>,
@@ -453,6 +517,7 @@ fn invalidate_subtree_recursive(
         let (child_fs_key, child_fs, _, _) = fs_entity_details_query.get(*child).unwrap();
         let (
             mut child_transform,
+            _child_global_transform,
             mut child_sprite,
             mut child_vis,
             maybe_child_color_range,
@@ -537,6 +602,13 @@ fn invalidate_subtree_recursive(
         let child_global_transform =
             parent_global_transform.mul_transform(*child_transform);
 
+        {
+            let mut mut_child_global_transform = fs_entity_mutable_details_query
+                .get_component_mut::<GlobalTransform>(*child)
+                .unwrap();
+            *mut_child_global_transform = child_global_transform;
+        }
+
         // Invalidate the subtree rooted at child (if one exists)
         invalidate_subtree_recursive(
             &child_global_transform,
@@ -561,6 +633,7 @@ fn hide_subtree_recursive(
     fs_entity_mutable_details_query: &mut Query<
         (
             &mut Transform,
+            &mut GlobalTransform,
             &mut Sprite,
             &mut Visibility,
             Option<&mut DescendentColorRange>,
