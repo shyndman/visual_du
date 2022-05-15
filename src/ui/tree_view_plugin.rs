@@ -644,12 +644,16 @@ fn hide_subtree_recursive(
         ),
     >,
 ) {
-    let mut child_vis = fs_entity_mutable_details_query
+    if !fs_entity_mutable_details_query.contains(*hidden_fs_parent) {
+        return;
+    }
+
+    let mut child_vis_res = fs_entity_mutable_details_query
         .get_component_mut::<Visibility>(*hidden_fs_parent)
         .unwrap();
 
-    if child_vis.is_visible {
-        child_vis.is_visible = false;
+    if child_vis_res.is_visible {
+        child_vis_res.is_visible = false;
     } else {
         return; // stop at an invisible subtree
     }

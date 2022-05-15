@@ -7,7 +7,7 @@ use valuable::{Valuable, Value};
 
 #[macro_export]
 macro_rules! relative_to {
-    ($path:expr, $root_path:ident) => {
+    ($path:expr, $root_path:expr) => {
         $path
             .strip_prefix(<std::path::PathBuf as AsRef<std::path::Path>>::as_ref(
                 &($root_path),
@@ -46,31 +46,30 @@ struct FsStreamReceiver(crossbeam_channel::Receiver<FsEntity>);
 #[derive(Deref, DerefMut)]
 struct FsEntityMap(bevy::utils::HashMap<String, Entity>);
 
-#[derive(Deref)]
-pub struct DiskUsageRootPath(std::path::PathBuf);
+pub struct DiskUsageWalkConfig {
+    pub root_path: std::path::PathBuf,
+}
 
-impl From<String> for DiskUsageRootPath {
-    fn from(path: String) -> Self {
-        Self(fs::canonicalize(path).unwrap())
+impl DiskUsageWalkConfig {
+    pub fn new(path: String) -> Self {
+        Self {
+            root_path: fs::canonicalize(path).unwrap(),
+        }
     }
 }
 
-impl From<&str> for DiskUsageRootPath {
-    fn from(path: &str) -> Self {
-        Self(fs::canonicalize(path).unwrap())
-    }
-}
-
-impl Default for DiskUsageRootPath {
+impl Default for DiskUsageWalkConfig {
     fn default() -> Self {
-        ".".into()
+        Self {
+            root_path: fs::canonicalize(".").unwrap(),
+        }
     }
 }
 
 pub struct DiskUsagePlugin;
 impl Plugin for DiskUsagePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DiskUsageRootPath>()
+        app.init_resource::<DiskUsageWalkConfig>()
             .add_startup_system(start_dir_walk)
             .add_system(spawn_fs_entities)
             .add_system(establish_parentage)
@@ -78,7 +77,8 @@ impl Plugin for DiskUsagePlugin {
     }
 }
 
-fn start_dir_walk(mut commands: Commands, root_path: Res<DiskUsageRootPath>) {
+fn start_dir_walk(mut commands: Commands, config: Res<DiskUsageWalkConfig>) {
+    let root_path = &config.root_path;
     info!(root_path = root_path.as_value(), "starting directory walk");
 
     let (send_channel, receive_channel) = bounded::<FsEntity>(64);
@@ -101,10 +101,10 @@ fn spawn_fs_entities(
     mut commands: Commands,
     mut fs_entity_map: ResMut<FsEntityMap>,
     fs_entity_stream: ResMut<FsStreamReceiver>,
-    root_path: Res<DiskUsageRootPath>,
+    config: Res<DiskUsageWalkConfig>,
 ) {
     for fs_entity in fs_entity_stream.try_iter() {
-        let rel_path = relative_to!(fs_entity.path, root_path);
+        let rel_path = relative_to!(fs_entity.path, config.root_path);
         let key: String = rel_path.to_string_lossy().into();
         debug!(path = rel_path.as_value(), "spawning entity");
 
@@ -130,11 +130,11 @@ fn establish_parentage(
         Added<FsEntityComponent>,
     >,
     fs_entity_map: Res<FsEntityMap>,
-    root_path: Res<DiskUsageRootPath>,
+    config: Res<DiskUsageWalkConfig>,
 ) {
     for (child_entity, fs_key, fs_entity) in added_fs_entities.iter() {
         let path = &fs_entity.path;
-        let rel_path = relative_to!(path, root_path);
+        let rel_path = relative_to!(path, config.root_path);
         debug!(path = fs_key.as_value(), "establishing parentage");
         if let Some(parent_path) = rel_path.parent() {
             debug!(
@@ -162,10 +162,10 @@ fn increment_ancestor_sizes_on_add(
     >,
     mut all_sizes: Query<&mut FsAggregateSize>,
     fs_entity_map: Res<FsEntityMap>,
-    root_path: Res<DiskUsageRootPath>,
+    config: Res<DiskUsageWalkConfig>,
 ) {
     for (fs_key, fs_entity) in added_fs_entities.iter() {
-        let rel_path = relative_to!(fs_entity.path, root_path);
+        let rel_path = relative_to!(fs_entity.path, config.root_path);
         let key: String = rel_path.to_string_lossy().into();
         let size_in_bytes = all_sizes
             .get(*fs_entity_map.get(&key).unwrap())

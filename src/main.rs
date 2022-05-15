@@ -29,7 +29,7 @@ fn main() {
     let root_path: String = args.next().unwrap_or("/Users/shyndman/dev/dart-sdk".into());
     let mut application = App::new();
     application
-        .insert_resource(DiskUsageRootPath::from(root_path))
+        .insert_resource(DiskUsageWalkConfig::new(root_path))
         .insert_resource(WinitSettings::game())
         .insert_resource(WindowDescriptor {
             title: "Visual Disk Usage".into(),
