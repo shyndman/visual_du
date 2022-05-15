@@ -47,7 +47,11 @@ impl DescendentColorRange {
         self.end - self.start
     }
 
-    pub fn sub_range(&self, fraction_start: f32, fraction_len: f32) -> DescendentColorRange {
+    pub fn sub_range(
+        &self,
+        fraction_start: f32,
+        fraction_len: f32,
+    ) -> DescendentColorRange {
         let start = self.start + fraction_start * self.len();
         DescendentColorRange {
             start,

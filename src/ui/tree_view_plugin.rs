@@ -1,4 +1,4 @@
-use super::{less_angry_rainbow_get_color, mouse_interactions_plugin::Hoverable};
+use super::mouse_interactions_plugin::Hoverable;
 use crate::{
     fs::du_plugin::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
     ui::DescendentColorRange,
@@ -8,7 +8,6 @@ use bevy::{prelude::*, sprite::Anchor};
 use grouping_by::GroupingBy;
 use tracing::debug;
 use valuable::Valuable;
-use valuable_derive::Valuable;
 
 const ROOT_COLOR: Color = Color::rgba(0.097, 0.104, 0.120, 0.0);
 const FILE_COLOR: Color = Color::rgb(0.502, 0.502, 0.502);
