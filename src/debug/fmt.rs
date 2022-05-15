@@ -1,11 +1,13 @@
 use ansi_term::{Colour, Style};
-use std::fmt::Write;
 use std::{
-    fmt::{self, Display},
+    fmt::{self, Display, Write},
     sync::{Arc, RwLock},
 };
-use tracing::field::Visit;
-use tracing::{field::Field, span::Record, Event, Id, Level, Subscriber};
+use tracing::{
+    field::{Field, Visit},
+    span::Record,
+    Event, Id, Level, Subscriber,
+};
 use tracing_subscriber::{
     field::{self, VisitOutput},
     fmt::{

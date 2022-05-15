@@ -83,6 +83,9 @@ fn mark_hoverables(
             marked_hoverables.clear();
         }
     } else {
+        let span = info_span!("finding hoverables under cursor");
+        let _enter_guard = span.enter();
+
         let cursor_world_pos = cursor_world_pos.unwrap();
         let mut unseen_hoverables = marked_hoverables.0.clone();
 
