@@ -34,10 +34,10 @@ impl Default for DiskUsageTreeOptions {
 struct DiskUsageTreeViewTransformRoot;
 
 pub struct DiskUsageTreeViewPlugin;
-
 impl Plugin for DiskUsageTreeViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(create_transform_root)
+        app.init_resource::<DiskUsageTreeOptions>()
+            .add_startup_system(create_transform_root)
             .add_system(scale_transform_root_to_window)
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_root_entity_sprite)
             .add_system_to_stage(CoreStage::PreUpdate, initialize_fs_entity_sprites)
@@ -154,8 +154,19 @@ fn initialize_fs_entity_sprites(
             Added<Parent>,
         ),
     >,
+    options: Res<DiskUsageTreeOptions>,
 ) {
     for (entity, fs_key, fs_entity) in new_parented_fs_entities_query.iter() {
+        if fs_entity.depth > options.max_depth {
+            debug!(
+                key = fs_key.as_value(),
+                depth = fs_entity.depth,
+                max_depth = options.max_depth,
+                "path is beyond max depth"
+            );
+            continue;
+        }
+
         debug!(key = fs_key.as_value(), "creating sprite");
         let mut entity_commands = commands.entity(entity);
         entity_commands
@@ -214,6 +225,7 @@ fn invalidate_tree_from_root(
         (&Transform, Changed<Transform>),
         With<DiskUsageTreeViewTransformRoot>,
     >,
+    tree_options: Res<DiskUsageTreeOptions>,
     // These two values are initialized to their defaults by Local, and remain empty. We use these
     // as error fallbacks. Note that we've had to use a static lifetime for
     // `default_entity_ref_vec`, which is fine because it contains no entity refs.
@@ -260,6 +272,7 @@ fn invalidate_tree_from_root(
             &fs_root,
             &fs_entity_details_query,
             &mut fs_entity_mutable_details_query,
+            &tree_options,
             &default_children_iter,
             &default_entity_ref_vec,
         );
@@ -289,16 +302,21 @@ fn invalidate_subtree_recursive(
             Without<DiskUsageTreeViewTransformRoot>,
         ),
     >,
+    tree_options: &Res<DiskUsageTreeOptions>,
     default_children_iter: &Local<Children>,
     default_entity_ref_vec: &Local<Vec<(&'static Entity, f32, f32)>>,
 ) {
-    let (parent_fs_key, _, parent_fs_size, maybe_children) =
+    let (parent_fs_key, parent_fs_entity, parent_fs_size, maybe_children) =
         fs_entity_details_query.get(*fs_parent).unwrap();
     let maybe_parent_color_range: Option<DescendentColorRange> =
         fs_entity_mutable_details_query
             .get_component::<DescendentColorRange>(*fs_parent)
             .ok()
             .map(|rng| *rng); // This dereference returns the immutable borrow
+
+    if parent_fs_entity.depth >= tree_options.max_depth {
+        return;
+    }
 
     debug!(
         key = parent_fs_key.as_value(),
@@ -321,6 +339,7 @@ fn invalidate_subtree_recursive(
     let children_by_visibility = maybe_children
         .unwrap_or(default_children_iter)
         .iter()
+        .filter(|child| fs_entity_details_query.contains(**child))
         .map(|child| {
             let child_fs_size = fs_entity_details_query
                 .get_component::<FsAggregateSize>(*child)
@@ -469,6 +488,7 @@ fn invalidate_subtree_recursive(
             child,
             fs_entity_details_query,
             fs_entity_mutable_details_query,
+            tree_options,
             default_children_iter,
             default_entity_ref_vec,
         );
