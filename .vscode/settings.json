@@ -3,4 +3,7 @@
     "editor.tabSize": 4,
     "editor.rulers": [90]
   },
+  "rust-analyzer.cargo.features": [
+    "bevy/dynamic"
+  ],
 }
