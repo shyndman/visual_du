@@ -270,11 +270,7 @@ impl<'a> PrettierVisitor<'a> {
 
 impl<'a> field::Visit for PrettierVisitor<'a> {
     fn record_str(&mut self, field: &Field, value: &str) {
-        if self.result.is_err() {
-            return;
-        }
-
-        if field.name() != "message" {
+        if self.result.is_ok() && field.name() != "message" {
             self.record_debug(field, &value)
         }
     }
@@ -302,6 +298,7 @@ impl<'a> field::Visit for PrettierVisitor<'a> {
         if self.result.is_err() {
             return;
         }
+
         let key_style = Colour::White.italic();
         match field.name() {
             "message" => {}
