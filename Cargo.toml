@@ -43,5 +43,6 @@ name = "main"
 path = "src/main.rs"
 
 [[example]]
-name = "walk_dir_example"
-path = "example/walk_dir_example.rs"
+name = "walk_dir"
+path = "example/walk_dir.rs"
+

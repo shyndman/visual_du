@@ -1,5 +1,5 @@
 use std::{collections::HashMap, env, fs, path, sync::mpsc, thread};
-use visual_du::*;
+use visual_du::fs::{walk_dir, FsEntity};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args().skip(1).collect::<Vec<String>>();
@@ -25,7 +25,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let size = sizes_by_path.entry(key.into()).or_insert(0);
             *size += entity.size_in_bytes();
 
-            println!("{key:?} is now {size}b (+{delta})", delta = entity.size_in_bytes());
+            println!(
+                "{key:?} is now {size}b (+{delta})",
+                delta = entity.size_in_bytes()
+            );
         }
     }
 
