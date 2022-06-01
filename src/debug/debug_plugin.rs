@@ -5,6 +5,7 @@ use bevy::{
     log::LogSettings,
     prelude::{Plugin, *},
 };
+use std::panic;
 use tracing_subscriber::{
     fmt::format::FmtSpan, prelude::*, registry::Registry, EnvFilter,
 };
@@ -13,9 +14,15 @@ pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let old_handler = panic::take_hook();
+        panic::set_hook(Box::new(move |infos| {
+            println!("{}", tracing_error::SpanTrace::capture());
+            old_handler(infos);
+        }));
+
         app
             // Tracing
-            .add_startup_system(setup_tracing)
+            .add_startup_system_to_stage(StartupStage::PreStartup, setup_tracing)
             // Diagnostics collection
             .add_plugin(SpriteCountDiagnosticsPlugin)
             .add_plugin(EntityCountDiagnosticsPlugin)
@@ -28,32 +35,39 @@ impl Plugin for DebugPlugin {
 
 fn setup_tracing(maybe_settings: Option<Res<LogSettings>>) {
     let default_filter = if let Some(settings) = maybe_settings {
-        format!("{},{}", settings.level, settings.filter)
+        let level_str = settings.level.to_string();
+        format!("{},{}", level_str.to_lowercase(), settings.filter)
     } else {
-        "".to_string()
+        "warn".to_string()
     };
     let filter_layer = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&default_filter))
         .unwrap();
-    println!("{:?}", filter_layer);
+    let filter_str = filter_layer.to_string();
 
-    let subscriber = Registry::default()
-        .with(filter_layer)
-        .with(tracing_error::ErrorLayer::default())
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_span_events(FmtSpan::CLOSE)
-                .event_format(PrettierFormatter::default()),
-        );
+    tracing::subscriber::set_global_default(
+        Registry::default()
+            .with(filter_layer)
+            .with(tracing_error::ErrorLayer::default())
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(FmtSpan::CLOSE)
+                    .event_format(PrettierFormatter::default()),
+            ),
+    )
+    .unwrap();
 
-    ::tracing::subscriber::set_global_default(subscriber).unwrap();
+    info!(filter = filter_str.as_value(), "Tracing configured");
 }
 
 #[derive(Component)]
 struct DiagnosticsText;
 
 fn setup_diagnostics_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // NOTE: This might not successfully load...but it's not entirely clear how to
+    // properly handle the failure.
     let font = asset_server.load("fonts/Hack-Regular.ttf");
+
     commands
         .spawn_bundle(TextBundle {
             style: Style {
@@ -78,6 +92,8 @@ fn setup_diagnostics_ui(mut commands: Commands, asset_server: Res<AssetServer>) 
             ..default()
         })
         .insert(DiagnosticsText);
+
+    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 fn display_diagnostics(
