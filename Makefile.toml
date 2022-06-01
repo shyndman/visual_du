@@ -1,0 +1,40 @@
+# cargo-make configuration
+# https://sagiegurari.github.io/cargo-make/
+
+[tasks.format]
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+install_crate = "rustfmt"
+
+[tasks.metal_profile]
+dependencies = [
+  "record_metal_profile",
+]
+
+[tasks.record_metal_profile]
+command = "xcrun"
+args = [
+  "xctrace",
+  "record",
+  "--template",
+  "Metal System Trace",
+  "--time-limit",
+  "10000ms",
+  "--no-prompt",
+  "--output",
+  "target/instruments/",
+  "--launch",
+  "--",
+  "${CARGO}",
+  "--verbose",
+  "run",
+  "--profile",
+  "${CARGO_MAKE_PROFILE}",
+  # The binary/example that is profiled should be configurable
+  "--bin",
+  "main",
+]
+
+[tasks.record_metal_profile.condition]
+platforms = ["mac"]
+env_set = ["CARGO"]
