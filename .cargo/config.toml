@@ -1,5 +1,11 @@
 [build]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y", "--cfg", "tracing_unstable"]
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=/usr/local/bin/zld",
+  "-Zshare-generics=y",
+  "--cfg",
+  "tracing_unstable",
+]
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
@@ -8,3 +14,7 @@ opt-level = 1
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.release.package.visual_du]
+debug = 2
+split-debuginfo = "packed"
