@@ -37,6 +37,8 @@ fn update_cursor_position(
         windows.get_primary().unwrap()
     };
 
+    // No movement, no checks (which isn't actually true, because the hoverables could be
+    // moving, but it's a common convention)
     if window.cursor_position() == cursor_world_pos.0 {
         return;
     }
