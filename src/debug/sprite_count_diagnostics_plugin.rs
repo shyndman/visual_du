@@ -17,7 +17,7 @@ impl Plugin for SpriteCountDiagnosticsPlugin {
 }
 
 fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-    diagnostics.add(Diagnostic::new(SPRITE_COUNT, "sprite_count", 20));
+    diagnostics.add(Diagnostic::new(SPRITE_COUNT, "sprite_count", /* max_history_length` */ 20));
 }
 
 fn diagnostic_system(counter: SpriteCounter, mut diagnostics: ResMut<Diagnostics>) {
@@ -27,8 +27,6 @@ fn diagnostic_system(counter: SpriteCounter, mut diagnostics: ResMut<Diagnostics
 
 /// The [`SystemParam`] struct can contain any types that can also be included in a
 /// system function signature.
-///
-/// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
 pub struct SpriteCounter<'w, 's> {
     sprites: Query<'w, 's, &'static Sprite>,

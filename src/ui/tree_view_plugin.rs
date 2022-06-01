@@ -1,8 +1,8 @@
 use super::mouse_interactions_plugin::Hoverable;
 use crate::{
-    fs::du_plugin::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
+    app_scaffold::WindowSize,
+    fs::{FsAggregateSize, FsEntityComponent, FsEntityKey, FsRootComponent},
     ui::DescendentColorRange,
-    WindowSize,
 };
 use bevy::{prelude::*, sprite::Anchor};
 use grouping_by::GroupingBy;
@@ -137,8 +137,8 @@ fn initialize_fs_root_entity_sprite(
         return;
     }
 
-    debug!("initializing root sprite");
     // Create a new sprite for the root fs
+    debug!("initializing root sprite");
     let (fs_root, fs_root_key) = fs_root_query.single();
     commands
         .entity(fs_root)

@@ -1,5 +1,4 @@
-use super::{SpriteCountDiagnosticsPlugin, SPRITE_COUNT};
-use crate::debug::PrettierFormatter;
+use super::{PrettierFormatter, SpriteCountDiagnosticsPlugin, SPRITE_COUNT};
 use bevy::{
     diagnostic::{Diagnostics, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin},
     log::LogSettings,
@@ -9,6 +8,7 @@ use std::panic;
 use tracing_subscriber::{
     fmt::format::FmtSpan, prelude::*, registry::Registry, EnvFilter,
 };
+use valuable::Valuable;
 
 pub struct DebugPlugin;
 
