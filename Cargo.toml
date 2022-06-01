@@ -8,6 +8,7 @@ ansi_term = "0.12"
 bevy = {version = "0.7.0", features = ["dynamic", "trace"]}
 bevy_framepace = "0.4.0"
 bevy_prototype_lyon = "0.5.0"
+bevy-embasset = "0.5.0"
 colorous = "1.0"
 crossbeam-channel = "0.5.4"
 grouping_by = "0.2.2"
@@ -17,6 +18,9 @@ tracing-subscriber = {version = "0.3", features = ["valuable"]}
 valuable = {version = "0.1.0", features = ["std"]}
 valuable-derive = "0.1.0"
 walkdir = "2.3.2"
+
+[build-dependencies]
+bevy-embasset = { version = "0.5.0", features = ["build"] }
 
 [lib]
 name = "visual_du"
