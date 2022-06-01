@@ -90,11 +90,12 @@ pub struct FsEntity {
 
 #[allow(dead_code)]
 impl FsEntity {
-    /// If this is a file, returns the file size in bytes. If this is a directory or symlink,
-    /// 0 is returned.
+    /// If this is a file, returns the file size in bytes. If this is a directory or
+    /// symlink, 0 is returned.
     pub fn size_in_bytes(&self) -> u64 {
-        // TODO: This is apparent size, not actual. To work with blocks, we'll need to
-        // be looking at the Unix metadata extensions.
+        // TODO: This is apparent size, not actual. For a true reflection of space
+        // occupied, we should be working with blocks, and for that there's OS-specific
+        // file metadata.
         if self.is_file() {
             self.metadata.len()
         } else {
