@@ -46,3 +46,6 @@ path = "src/main.rs"
 name = "walk_dir"
 path = "example/walk_dir.rs"
 
+[[example]]
+name = "custom_pipeline"
+path = "example/custom_pipeline.rs"

@@ -17,10 +17,6 @@ const INITIAL_WINDOW_SIZE: Vec2 = const_vec2!([1280.0, 800.0]);
 #[derive(Deref, DerefMut)]
 pub struct WindowSize(pub Vec2);
 
-fn print_int(i: usize) {
-    eprintln!("{i}");
-}
-
 pub struct AppScaffoldPlugin {
     pub title: &'static str,
     pub bin_module_path: &'static str,
