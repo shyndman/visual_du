@@ -73,39 +73,36 @@ struct LastHovered(Option<Entity>);
 
 fn mark_hoverables(
     cursor_world_pos: Res<MouseCursorWorldPosition>,
-    mut hoverables_query: Query<(Entity, &mut Hoverable, &GlobalTransform, &Visibility)>,
+    mut hoverables_query: Query<(Entity, &mut Hoverable)>,
+    mut visuals_query: Query<(Entity, &GlobalTransform, &Visibility), With<Hoverable>>,
     mut last_hovered: Local<LastHovered>,
 ) {
     if cursor_world_pos.0 == None {
         if cursor_world_pos.is_changed() {
             debug!("no cursor position — removing any existing hover states");
             if let Some(entity) = last_hovered.0 {
-                let (_, mut hoverable, _, _) = hoverables_query.get_mut(entity).unwrap();
+                let (_, mut hoverable) = hoverables_query.get_mut(entity).unwrap();
                 hoverable.is_hovered = false;
             }
             last_hovered.0 = None;
         }
     } else {
-        let span = trace_span!("finding hoverables under cursor");
+        let span = debug_span!("finding hoverables under cursor");
         let _enter_guard = span.enter();
 
         let cursor_world_pos = cursor_world_pos.unwrap();
-        let mut z_ordered_hoverables: Vec<(
-            Entity,
-            Mut<Hoverable>,
-            &GlobalTransform,
-            &Visibility,
-        )> = hoverables_query
-            .iter_mut()
-            // Don't include hidden sprites
-            .filter(|(_, _, _, vis)| vis.is_visible)
-            .collect();
-        z_ordered_hoverables.sort_by(|(_, _, t_a, _), (_, _, t_b, _)| {
+        let mut z_ordered_hoverables: Vec<(Entity, &GlobalTransform, &Visibility)> =
+            visuals_query
+                .iter_mut()
+                // Don't include hidden sprites
+                .filter(|(_, _, vis)| vis.is_visible)
+                .collect();
+        z_ordered_hoverables.sort_by(|(_, t_a, _), (_, t_b, _)| {
             t_b.translation.z.total_cmp(&t_a.translation.z)
         });
 
-        last_hovered.0 = None;
-        for (entity, mut hoverable, transform, _) in z_ordered_hoverables {
+        let has_last_hovered = last_hovered.0 != None;
+        for (entity, transform, _) in z_ordered_hoverables {
             let min = transform.translation.truncate();
             let max = min + transform.scale.truncate();
             let new_is_hovered = min.x <= cursor_world_pos.x
@@ -113,11 +110,38 @@ fn mark_hoverables(
                 && cursor_world_pos.x <= max.x
                 && cursor_world_pos.y <= max.y;
 
-            if hoverable.is_hovered != new_is_hovered {
-                hoverable.is_hovered = new_is_hovered;
+            let is_hovered_changed = if let Ok(hoverable) =
+                hoverables_query.get_component::<Hoverable>(entity)
+            {
+                new_is_hovered != hoverable.is_hovered
+            } else {
+                false
+            };
+
+            if is_hovered_changed {
+                let debug_tag = {
+                    let mut hoverable = hoverables_query
+                        .get_component_mut::<Hoverable>(entity)
+                        .unwrap();
+                    hoverable.is_hovered = new_is_hovered;
+                    hoverable.debug_tag.clone()
+                };
+
                 if new_is_hovered {
-                    info!(debug_tag = hoverable.debug_tag.as_value(), "new hovered",);
-                    last_hovered.0 = Some(entity);
+                    info!(debug_tag = debug_tag.as_value(), "new hovered",);
+
+                    // If we have a previous hoverable, mark it unhovered
+                    if has_last_hovered {
+                        let mut last_hoverable = hoverables_query
+                            .get_component_mut::<Hoverable>(last_hovered.0.unwrap())
+                            .unwrap();
+                        last_hoverable.is_hovered = false;
+                    }
+
+                    *last_hovered = LastHovered(Some(entity));
+
+                    // If we've hovered over something new, we're done
+                    break;
                 }
             }
         }
