@@ -10,6 +10,7 @@ use tracing_subscriber::{
 };
 use valuable::Valuable;
 
+/// This plugin assumes that a UI camera has been added to the world.
 pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
@@ -92,8 +93,6 @@ fn setup_diagnostics_ui(mut commands: Commands, asset_server: Res<AssetServer>) 
             ..default()
         })
         .insert(DiagnosticsText);
-
-    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 fn display_diagnostics(

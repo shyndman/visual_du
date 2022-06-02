@@ -70,9 +70,15 @@ impl Plugin for AppScaffoldPlugin {
                     // doing nothing (big data movement to the GPU, involving lights???).
                     .disable::<PbrPlugin>()
             })
+            .add_startup_system(create_ui_camera)
             .add_system(update_window_size);
     }
 }
+
+fn create_ui_camera(mut commands: Commands) {
+    commands.spawn_bundle(UiCameraBundle::default());
+}
+
 
 fn update_window_size(windows: Res<Windows>, mut window_size: ResMut<WindowSize>) {
     if let Some(window) = windows.get_primary() {
