@@ -23,6 +23,7 @@ bevy-embasset = "0.5.0"
 colorous = "1.0"
 crossbeam-channel = "0.5.4"
 grouping_by = "0.2.2"
+palette = "0.6.0"
 rand = "0.8.5"
 tracing = { version = "0.1", features = ["valuable"] }
 tracing-error = "0.2.0"

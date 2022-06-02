@@ -1,4 +1,5 @@
 use ansi_term::{Colour, Style};
+use palette::{FromColor, Hsv, Pixel, Srgb};
 use std::{
     fmt::{self, Display, Write},
     sync::{Arc, RwLock},
@@ -96,7 +97,7 @@ where
         }
 
         let level = md.level();
-        let level_style = level_style(level);
+        let level_style = get_level_style(level, /* dimmed */ false);
         let prefixes = get_prefixes(level);
 
         let mut message_visitor = MessageValueVisitor::new();
@@ -134,8 +135,8 @@ fn write_target(writer: &mut format::Writer, target: &str) -> Result<(), fmt::Er
 }
 
 fn get_prefixes(level: &Level) -> RecordPrefixes {
-    let level_style = level_style(level);
-    let dim_level_style = level_style.dimmed();
+    let level_style = get_level_style(level, /* is_dimmed */ false);
+    let dim_level_style = get_level_style(level, /* is_dimmed */ true);
     let level_string = format!("{}:", &level.to_string().to_ascii_lowercase());
     let level_string = format!("{:8}", &level_string);
     RecordPrefixes {
@@ -162,13 +163,34 @@ fn get_prefixes(level: &Level) -> RecordPrefixes {
     }
 }
 
-fn level_style(level: &Level) -> Style {
+// TODO: Extract all of these colors to constants
+fn get_level_style(level: &Level, is_dimmed: bool) -> Style {
     match *level {
-        Level::TRACE => Style::new().fg(Colour::RGB(21, 116, 224)),
-        Level::DEBUG => Style::new().fg(Colour::RGB(26, 185, 227)),
-        Level::INFO => Style::new().fg(Colour::RGB(26, 227, 73)),
-        Level::WARN => Style::new().fg(Colour::RGB(229, 229, 12)),
-        Level::ERROR => Style::new().fg(Colour::RGB(220, 46, 49)),
+        Level::TRACE => Style::new().fg(if is_dimmed {
+            hsv_to_term_colour(221.0, 231, 90)
+        } else {
+            hsv_to_term_colour(221.0, 231, 224)
+        }),
+        Level::DEBUG => Style::new().fg(if is_dimmed {
+            hsv_to_term_colour(192.0, 226, 90)
+        } else {
+            hsv_to_term_colour(192.0, 226, 227)
+        }),
+        Level::INFO => Style::new().fg(if is_dimmed {
+            hsv_to_term_colour(134.0, 226, 90)
+        } else {
+            hsv_to_term_colour(134.0, 226, 227)
+        }),
+        Level::WARN => Style::new().fg(if is_dimmed {
+            hsv_to_term_colour(60.0, 242, 90)
+        } else {
+            hsv_to_term_colour(60.0, 242, 229)
+        }),
+        Level::ERROR => Style::new().fg(if is_dimmed {
+            hsv_to_term_colour(358.0, 202, 90)
+        } else {
+            hsv_to_term_colour(358.0, 202, 220)
+        }),
     }
 }
 
@@ -366,4 +388,14 @@ impl Visit for MessageValueVisitor {
             self.field_count += 1;
         }
     }
+}
+
+fn hsv_to_term_colour(hue_deg: f32, saturation: u8, value: u8) -> Colour {
+    let rgb = Srgb::from_color(Hsv::new(
+        hue_deg,
+        saturation as f32 / 255.0,
+        value as f32 / 255.0,
+    ));
+    let components: [u8; 3] = rgb.into_format().into_raw();
+    Colour::RGB(components[0], components[1], components[2])
 }
