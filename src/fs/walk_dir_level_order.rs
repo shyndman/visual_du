@@ -1,5 +1,5 @@
 use std::{cmp::Ordering, collections::VecDeque, fs, path, result::Result};
-use tracing::{error, info};
+use tracing::{error, info, trace};
 use valuable::Valuable;
 
 pub struct LevelOrderDirTraversal {
@@ -13,20 +13,25 @@ impl LevelOrderDirTraversal {
             return;
         }
 
-        match fs::read_dir(parent.clone().path) {
+        let path = parent.clone().path;
+        trace!(path = path.as_value(), "Enqueuing children of path");
+
+        match fs::read_dir(&path) {
             Ok(rd) => {
                 let mut child_entities: Vec<_> = rd
                     .map(|e| dir_entry_to_fs_entity(e, parent.depth + 1))
                     .collect();
                 child_entities.sort_by(|a, b| match (a, b) {
                     (Ok(a), Ok(b)) => a.path.to_str().cmp(&b.path.to_str()),
-                    (Ok(_), Err(_)) => Ordering::Less,
-                    (Err(_), Ok(_)) => Ordering::Greater,
+                    (Ok(_), Err(_)) => Ordering::Greater,
+                    (Err(_), Ok(_)) => Ordering::Less,
                     (Err(_), Err(_)) => Ordering::Equal,
                 });
                 self.queue.extend(child_entities);
             }
-            Err(error) => error!(error = %error, "Error reading directory"),
+            Err(error) => {
+                error!(error = %error, path = path.as_value(), "Error reading directory")
+            }
         }
     }
 }
