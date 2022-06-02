@@ -256,7 +256,7 @@ fn handle_hover(
     for (hoverable_entity, hoverable, transform, change_tracker) in
         changed_hoverables_query.iter()
     {
-        info!(
+        debug!(
             hoverable_changed = change_tracker.is_changed(),
             debug_tag = hoverable.debug_tag.as_value(),
             hovered = hoverable.is_hovered,
@@ -266,7 +266,7 @@ fn handle_hover(
         if hoverable.is_hovered {
             has_hovered = true;
 
-            info!(
+            debug!(
                 translation = transform.translation.to_array().as_value(),
                 scale = transform.scale.to_array().as_value(),
                 "applying transform"
@@ -281,7 +281,7 @@ fn handle_hover(
     }
 
     if !has_hovered {
-        warn!("Hiding the hover sprite");
+        debug!("hiding the hover sprite");
         hover_vis.is_visible = false;
         hover_sprite.0 = None;
     }
@@ -375,10 +375,10 @@ fn invalidate_tree_from_root(
     };
 
     if tree_needs_redraw {
-        let span = info_span!("du_tree::invalidate()");
+        let span = debug_span!("du_tree::invalidate()");
         let _enter_guard = span.enter();
 
-        info!(
+        debug!(
             fs_root_changed = fs_root_changed,
             root_transform_changed = root_transform_changed,
             "disk usage tree visuals invalidated"
