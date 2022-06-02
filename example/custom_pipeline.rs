@@ -46,7 +46,7 @@ fn create_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-const RECT_COLS: usize = 3;
+const RECT_COLS: usize = 5;
 const RECT_ROWS: usize = 10;
 const RECT_COUNT: usize = RECT_COLS * RECT_ROWS;
 const GAP_SIZE: f32 = 10.0;
@@ -73,10 +73,12 @@ fn update_poly_rects(
     mut transform_query: Query<&mut Transform, With<PolyRect>>,
     window_size: Res<WindowSize>,
 ) {
-    let min_x = -window_size.x / 2.0;
-    let min_y = -window_size.y / 2.0;
-    let width_per = window_size.x / RECT_COLS as f32;
-    let height_per = window_size.y / RECT_ROWS as f32;
+    let avail_window_width = window_size.x - GAP_SIZE * (RECT_COLS as f32 - 1.0);
+    let avail_window_height = window_size.y - GAP_SIZE * (RECT_ROWS as f32 - 1.0);
+    let width_per = avail_window_width / RECT_COLS as f32;
+    let height_per = avail_window_height / RECT_ROWS as f32;
+    let min_x = (width_per - window_size.x) / 2.0;
+    let min_y =  (height_per - window_size.y) / 2.0;
 
     info!(width_per, height_per, "update_poly_rects");
 
@@ -85,14 +87,13 @@ fn update_poly_rects(
 
         *t = Transform {
             translation: Vec3::new(
-                min_x + c as f32 * width_per,
-                min_y + r as f32 * height_per + 50.0,
+                min_x + c as f32 * (width_per + GAP_SIZE),
+                min_y + r as f32 * (height_per + GAP_SIZE),
                 0.0,
             ),
-            scale: Vec3::new(width_per - GAP_SIZE, height_per - GAP_SIZE, 1.0),
+            scale: Vec3::new(width_per, height_per, 1.0),
             ..Transform::default()
         };
-        break;
     }
 }
 
