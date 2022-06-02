@@ -42,7 +42,7 @@ impl Plugin for AppScaffoldPlugin {
         #[cfg(debug_assertions)]
         {
             app.insert_resource(LogSettings {
-                filter: format!("{}=trace,visual_du=warn", self.bin_module_path),
+                filter: format!("{}=trace,visual_du=info", self.bin_module_path),
                 level: Level::WARN,
             });
         }
