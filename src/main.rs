@@ -7,10 +7,8 @@ use visual_du::{
 };
 
 fn main() {
-    panic!();
-
     let mut args = env::args().skip(1);
-    let root_path: String = args.next().unwrap_or("/Users/shyndman/dev/dart-sdk".into());
+    let root_path: String = args.next().unwrap_or("./example".into());
 
     let mut app = App::new();
     app.add_plugin(AppScaffoldPlugin {
