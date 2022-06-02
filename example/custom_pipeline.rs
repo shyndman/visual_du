@@ -34,7 +34,7 @@ fn main() {
             bin_module_path: module_path!(),
         })
         .add_plugin(PolyRectMeshPlugin)
-        .add_plugin(ColoredMesh2dPlugin)
+        .add_plugin(RenderPolyRectPlugin)
         .add_startup_system(create_camera)
         .add_startup_system(draw_poly_rects)
         .add_system(update_poly_rects);
@@ -46,9 +46,10 @@ fn create_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-const RECT_COLS: usize = 10;
+const RECT_COLS: usize = 3;
 const RECT_ROWS: usize = 10;
 const RECT_COUNT: usize = RECT_COLS * RECT_ROWS;
+const GAP_SIZE: f32 = 10.0;
 
 /// System for creating a poly rect [Mesh], and registering it in the [Assets<Mesh>] resource.
 fn draw_poly_rects(mut commands: Commands, poly_rect_handle: Res<PolyRectMeshHandle>) {
@@ -56,7 +57,7 @@ fn draw_poly_rects(mut commands: Commands, poly_rect_handle: Res<PolyRectMeshHan
         // We can now spawn the entities for the polyrect and the camera
         commands.spawn_bundle((
             // We use a marker component to identify the custom colored meshes
-            ColoredMesh2d::default(),
+            PolyRect::default(),
             // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
             Mesh2dHandle(poly_rect_handle.clone()),
             // These other components are needed for 2d meshes to be rendered
@@ -69,7 +70,7 @@ fn draw_poly_rects(mut commands: Commands, poly_rect_handle: Res<PolyRectMeshHan
 }
 
 fn update_poly_rects(
-    mut transform_query: Query<&mut Transform, With<ColoredMesh2d>>,
+    mut transform_query: Query<&mut Transform, With<PolyRect>>,
     window_size: Res<WindowSize>,
 ) {
     let min_x = -window_size.x / 2.0;
@@ -77,24 +78,27 @@ fn update_poly_rects(
     let width_per = window_size.x / RECT_COLS as f32;
     let height_per = window_size.y / RECT_ROWS as f32;
 
+    info!(width_per, height_per, "update_poly_rects");
+
     for (i, mut t) in transform_query.iter_mut().enumerate() {
         let (c, r) = (i % RECT_COLS, i / RECT_COLS);
 
         *t = Transform {
             translation: Vec3::new(
                 min_x + c as f32 * width_per,
-                min_y + r as f32 * height_per,
+                min_y + r as f32 * height_per + 50.0,
                 0.0,
             ),
-            scale: Vec3::new(width_per, height_per, 1.0),
+            scale: Vec3::new(width_per - GAP_SIZE, height_per - GAP_SIZE, 1.0),
             ..Transform::default()
-        }
+        };
+        break;
     }
 }
 
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
-pub struct ColoredMesh2d;
+pub struct PolyRect;
 
 /// Custom pipeline for 2d meshes with vertex colors
 pub struct PolyRectPipeline {
@@ -190,12 +194,12 @@ type DrawPolyRect = (
 );
 
 /// Plugin that renders [`ColoredMesh2d`]s
-pub struct ColoredMesh2dPlugin;
+pub struct RenderPolyRectPlugin;
 
 /// Path to the shader used to render our mesh
 const POLY_RECT_SHADER_PATH: &str = "shaders/example/poly_rect.wgsl";
 
-impl Plugin for ColoredMesh2dPlugin {
+impl Plugin for RenderPolyRectPlugin {
     fn build(&self, app: &mut App) {
         // Register our custom draw function and pipeline, and add our render systems
         let render_app = app.get_sub_app_mut(RenderApp).unwrap();
@@ -203,38 +207,39 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_render_command::<Transparent2d, DrawPolyRect>()
             .init_resource::<PolyRectPipeline>()
             .init_resource::<SpecializedRenderPipelines<PolyRectPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_colored_mesh2d)
-            .add_system_to_stage(RenderStage::Queue, queue_colored_mesh2d);
+            .add_system_to_stage(RenderStage::Extract, extract_poly_rects)
+            .add_system_to_stage(RenderStage::Queue, queue_poly_rects);
     }
 }
 
-/// Extract the [`ColoredMesh2d`] marker component into the render app
-pub fn extract_colored_mesh2d(
+/// Extract the [`PolyRect`] marker component into the render app
+pub fn extract_poly_rects(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>,
+    query: Query<(Entity, &ComputedVisibility), With<PolyRect>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
-        values.push((entity, (ColoredMesh2d,)));
+        values.push((entity, (PolyRect,)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
 }
 
-/// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
+/// Queue the 2d meshes marked with [`PolyRect`] using our custom pipeline and draw
+/// function
 #[allow(clippy::too_many_arguments)]
-pub fn queue_colored_mesh2d(
+pub fn queue_poly_rects(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<PolyRectPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PolyRectPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
+    colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<PolyRect>>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
     if colored_mesh2d.is_empty() {
@@ -273,8 +278,8 @@ pub fn queue_colored_mesh2d(
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,
-                    // The 2d render items are sorted according to their z value before rendering,
-                    // in order to get correct transparency
+                    // The 2d render items are sorted according to their z value before
+                    // rendering, in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
                     batch_range: None,

@@ -78,6 +78,11 @@ fn update_window_size(windows: Res<Windows>, mut window_size: ResMut<WindowSize>
     if let Some(window) = windows.get_primary() {
         let new_window_size = Vec2::new(window.width(), window.height());
         if window_size.0 != new_window_size {
+            info!(
+                width = window.width(),
+                height = window.height(),
+                "window has new size"
+            );
             window_size.0 = new_window_size;
         }
     }

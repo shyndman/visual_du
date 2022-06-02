@@ -3,6 +3,7 @@ use bevy::{
     render::mesh::{Indices, PrimitiveTopology},
 };
 use rand::Rng;
+use std::iter::once;
 
 /// The number of horizontal sections in the poly rect mesh
 const POLY_RECT_SECTION_COUNT: usize = 40;
@@ -63,15 +64,15 @@ fn create_poly_rect_mesh(x_section_count: usize) -> Mesh {
 
     // Add some colors to satisfy the shader
     let mut rand = rand::thread_rng();
-    let v_colors: Vec<u32> = (0..rect_vertex_count)
-        .map(|_| {
+    let v_colors: Vec<_> = once(Color::rgb(1.0, 0.0, 0.0))
+        .chain((1..rect_vertex_count).map(|_| {
             Color::hsl(
                 rand.gen_range(0.0..=360.0),
                 rand.gen_range(0.0..=1.0),
                 rand.gen_range(0.0..=1.0),
             )
-            .as_linear_rgba_u32()
-        })
+        }))
+        .map(Color::as_linear_rgba_u32)
         .collect();
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_colors);
 
