@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, collections::VecDeque, fs, path, result::Result};
-use tracing::error;
+use tracing::{error, info};
+use valuable::Valuable;
 
 pub struct LevelOrderDirTraversal {
     pub root_path: path::PathBuf,
@@ -67,6 +68,8 @@ pub fn walk_dir<P: AsRef<path::Path>>(
     root_path: P,
 ) -> Result<LevelOrderDirTraversal, std::io::Error> {
     let root_path = root_path.as_ref().canonicalize()?;
+    info!(root_path = root_path.as_value(), "Beginning directory walk");
+
     let root = fs::metadata(&root_path)
         .map(|md| FsEntity {
             path: root_path.clone(),
